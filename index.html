@@ -524,6 +524,7 @@ function render(){
   const root=$("#root");
   if(S.recovery){root.innerHTML=recoveryView();bindRecovery();return}
   if(!S.user){root.innerHTML=authView();bindAuth();return}
+  if(!S.loaded&&!S._booting){setTimeout(()=>boot(S.user),0)}
   const tb=taskBuckets(),due=tb.overdue.length+tb.today.length;
   const nav=(v,cnt)=>`<button class="nav ${S.view===v?"on":""}" data-nav="${v}">${icon(v)}<span>${t(v)}</span>${cnt?`<span class="count">${cnt}</span>`:""}</button>`;
   const tab=(v,cnt)=>`<button class="tab ${S.view===v?"on":""}" data-nav="${v}">${icon(v)}<span>${t(v)}</span>${cnt?`<span class="dot">${cnt}</span>`:""}</button>`;
@@ -588,7 +589,7 @@ function recoveryView(){return `<div class="auth"><section class="auth-art"><div
  <button class="btn primary" type="submit" style="height:42px">${t("setPass")}</button><p class="small" id="recMsg" style="margin:0"></p></form></section></div>`}
 function bindRecovery(){$("#recForm").onsubmit=async e=>{e.preventDefault();const r=await sb.auth.updateUser({password:$("#np").value});
   if(r.error){$("#recMsg").style.color="var(--bad)";$("#recMsg").textContent=r.error.message;return}
-  toast(t("passSaved"));S.recovery=false;render()}}
+  toast(t("passSaved"));S.recovery=false;boot(S.user)}}
 function bindAuth(){
   const fb=$("#forgotBtn");if(fb)fb.onclick=async()=>{const email=$("#ae").value.trim(),m=$("#authMsg");
     if(!email){m.style.color="var(--bad)";m.textContent=t("needEmail");$("#ae").focus();return}
@@ -932,10 +933,10 @@ function bindSheet(){const sc=$("#scrim"),body=$(".sh-body",sc);bindCommon(body)
 /* ================= boot ================= */
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view)go(h)});
 // Supabase holds an auth lock while this callback runs: never await Supabase calls inside it (that deadlocks). Defer instead.
-async function boot(u){S.user=u;S.loaded=false;render();
+async function boot(u){if(S._booting)return;S._booting=true;S.user=u;S.loaded=false;render();
   try{await loadAll()}catch(e){console.error(e)}
   try{await loadChat()}catch(e){}
-  S.loaded=true;render()}
+  S.loaded=true;S._booting=false;render()}
 sb.auth.onAuthStateChange((ev,session)=>{const u=session?.user||null;
   if(ev==="PASSWORD_RECOVERY"){S.recovery=true;S.user=u;setTimeout(render,0);return}
   if(u&&(!S.user||S.user.id!==u.id))setTimeout(()=>boot(u),0);
