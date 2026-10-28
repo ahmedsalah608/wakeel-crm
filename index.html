@@ -912,10 +912,15 @@ function bindSheet(){const sc=$("#scrim"),body=$(".sh-body",sc);bindCommon(body)
 
 /* ================= boot ================= */
 window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(VIEWS.includes(h)&&h!==S.view)go(h)});
-sb.auth.onAuthStateChange(async(ev,session)=>{const u=session?.user||null;
-  if(u&&(!S.user||S.user.id!==u.id)){S.user=u;S.loaded=false;render();await loadAll();await loadChat().catch(()=>{});render()}
-  else if(u){S.user=u}
-  else if(!u){S.user=null;render()}});
+// Supabase holds an auth lock while this callback runs: never await Supabase calls inside it (that deadlocks). Defer instead.
+async function boot(u){S.user=u;S.loaded=false;render();
+  try{await loadAll()}catch(e){console.error(e)}
+  try{await loadChat()}catch(e){}
+  S.loaded=true;render()}
+sb.auth.onAuthStateChange((ev,session)=>{const u=session?.user||null;
+  if(u&&(!S.user||S.user.id!==u.id))setTimeout(()=>boot(u),0);
+  else if(u)S.user=u;
+  else{S.user=null;S.loaded=false;setTimeout(render,0)}});
 render();
 </script>
 </body>
