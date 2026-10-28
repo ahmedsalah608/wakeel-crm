@@ -854,7 +854,7 @@ function bindView(){const m=$("#main");if(!m||!S.loaded)return;bindCommon(m);
   if(S.view==="settings"){
     $("#signout").onclick=()=>sb.auth.signOut();$("#s_lang").onchange=e=>setLang(e.target.value);
     $("#chEmail").onclick=async()=>{const v=$("#s_login").value.trim();if(!v||v===S.user.email)return;const r=await sb.auth.updateUser({email:v},{emailRedirectTo:location.origin+location.pathname});toast(r.error?r.error.message:t("emailChangeSent"))};
-    $("#setForm").onsubmit=async e=>{e.preventDefault();const key=$("#s_key").value.trim();
+    $("#setForm").onsubmit=async e=>{e.preventDefault();const rawKey=$("#s_key").value.trim(),key=(rawKey.match(/sk-ant-[A-Za-z0-9_-]+/)||[rawKey])[0];
       if(key){await q(S.hasKey?sb.from("api_keys").update({anthropic_key:key,updated_at:new Date().toISOString()}).eq("owner_id",S.user.id):sb.from("api_keys").insert({anthropic_key:key}));S.hasKey=true}
       const patch={agent_model:$("#s_model").value,agent_monthly_budget_usd:+$("#s_budget").value||0,default_price:+$("#s_price").value||0,commission_pct:+$("#s_comm").value||0,quarterly_target_egp:+$("#s_tgt").value||0,sender_name:$("#s_sn").value,sender_email:$("#s_se").value,signature:$("#s_sig").value,updated_at:new Date().toISOString()};
       S.settings=await q(sb.from("settings").upsert({owner_id:S.user.id,...patch}).select().single());toast("✓ "+t("saved"));render()};
