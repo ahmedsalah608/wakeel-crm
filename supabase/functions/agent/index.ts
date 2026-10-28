@@ -261,7 +261,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < MAX_LOOPS; i++) {
       const body: any = {
         model, max_tokens: 8000, system: SYSTEM(today, s) + (useSearch ? "" : `\nNOTE: the web_search tool failed this turn (${searchError}). Tell Ahmed in one line that web search failed and quote this reason.`), messages,
-        tools: [...tools, ...(useSearch ? [{ type: "web_search_20250305", name: "web_search", max_uses: 8, allowed_callers: ["direct"], user_location: { type: "approximate", country: "EG", city: "Alexandria", timezone: "Africa/Cairo" } }] : [])],
+        tools: [...tools, ...(useSearch ? [{ type: "web_search_20250305", name: "web_search", max_uses: 8, allowed_callers: ["direct"] }] : [])],
       };
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
