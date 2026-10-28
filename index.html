@@ -1,0 +1,689 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Wakeel CRM">
+<meta name="theme-color" content="#1F6F55">
+<title>Wakeel CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Readex+Pro:wght@500;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: one-screen app — side rail on desktop, bottom tab bar on phone; sheets slide over for records. */
+:root{
+  --bg:#F5F7F5; --surface:#FFFFFF; --sunk:#ECF0ED; --line:#DCE3DE;
+  --ink:#16211D; --muted:#5D6B65; --accent:#1F6F55; --accent-ink:#FFFFFF; --accent-soft:#DDEFE7;
+  --warn:#B4740F; --warn-soft:#FBEFD9; --bad:#B23B3B; --bad-soft:#F8E1E1; --good:#1F7A4A; --good-soft:#DDF1E5;
+  --f-display:"Readex Pro","IBM Plex Sans Arabic",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans Arabic",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+  --r:12px; --shadow:0 1px 2px rgba(16,33,29,.06),0 8px 24px rgba(16,33,29,.08);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#0E1412; --surface:#151E1B; --sunk:#1B2622; --line:#28362F;
+  --ink:#E4ECE8; --muted:#94A59D; --accent:#4FB38E; --accent-ink:#06130E; --accent-soft:#18352A;
+  --warn:#E3A645; --warn-soft:#3A2C12; --bad:#E57373; --bad-soft:#3A1C1C; --good:#5BC58A; --good-soft:#163323;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.35); color-scheme:dark}}
+*{box-sizing:border-box}
+html,body,#root{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.55 var(--f-body);-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;margin:0;text-wrap:balance;line-height:1.25}
+h1{font-size:1.35rem} h2{font-size:1.1rem} h3{font-size:.98rem}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.muted{color:var(--muted)} .small{font-size:.84rem}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* shell */
+.app{display:grid;grid-template-columns:220px 1fr;height:100%}
+.rail{background:var(--surface);border-inline-end:1px solid var(--line);padding:20px 12px;display:flex;flex-direction:column;gap:4px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px 18px}
+.brand-mark{width:34px;height:34px;border-radius:9px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;font:700 1rem var(--f-display)}
+.brand b{font-family:var(--f-display);font-size:1.05rem}
+.nav{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:0;background:none;cursor:pointer;text-align:start;width:100%;color:var(--muted);font-weight:500}
+.nav svg{width:20px;height:20px;flex:none}
+.nav.on{background:var(--accent-soft);color:var(--accent)}
+.nav:hover:not(.on){background:var(--sunk);color:var(--ink)}
+.rail .spacer{flex:1}
+main{overflow:auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.page{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.tabbar{display:none}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:1fr auto}
+  .rail{display:none}
+  main{padding-block:14px 24px}
+  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding:6px max(6px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(6px,env(safe-area-inset-left,0px))}
+  .tabbar .nav{flex-direction:column;gap:2px;font-size:.72rem;padding:6px 2px;justify-content:center}
+}
+
+/* building blocks */
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r)}
+.pad{padding:16px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.kpi{padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.kpi .label{font-size:.78rem;color:var(--muted);letter-spacing:.02em}
+.kpi .val{font-size:1.35rem;font-family:var(--f-num);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.kpi .sub{font-size:.78rem;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:8px 14px;cursor:pointer;font-weight:500;white-space:nowrap;text-decoration:none;color:var(--ink)}
+.btn:hover{background:var(--sunk)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.07)}
+.btn.ghost{border-color:transparent;background:none}
+.btn.sm{padding:5px 10px;font-size:.84rem;border-radius:8px}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.55;cursor:default}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.list{display:flex;flex-direction:column}
+.item{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-top:1px solid var(--line);min-width:0}
+.item:first-child{border-top:0}
+.item.click{cursor:pointer}
+.item.click:hover{background:var(--sunk)}
+.ico{width:34px;height:34px;border-radius:9px;background:var(--sunk);display:grid;place-items:center;flex:none;color:var(--muted)}
+.ico svg{width:18px;height:18px}
+.ico.call{color:#2F6FB0} .ico.whatsapp{color:#1E9E5A} .ico.email{color:#8A5BB8} .ico.meeting,.ico.visit{color:var(--warn)}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:.74rem;padding:2px 8px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap;font-weight:500}
+.chip.new{background:var(--sunk)} .chip.contacted{background:#E3ECF7;color:#2F5F94}
+.chip.qualified,.chip.customer,.chip.won{background:var(--good-soft);color:var(--good)}
+.chip.unqualified,.chip.lost,.chip.overdue{background:var(--bad-soft);color:var(--bad)}
+.chip.draft,.chip.due{background:var(--warn-soft);color:var(--warn)}
+@media (prefers-color-scheme:dark){.chip.contacted{background:#1B2B3F;color:#8AB6E8}}
+.score{font-family:var(--f-num);font-size:.8rem;min-width:34px;text-align:center;padding:2px 6px;border-radius:6px;background:var(--sunk)}
+.score.hi{background:var(--good-soft);color:var(--good)} .score.mid{background:var(--warn-soft);color:var(--warn)} .score.lo{background:var(--bad-soft);color:var(--bad)}
+.title{font-weight:600;overflow-wrap:anywhere}
+.empty{padding:28px 16px;text-align:center;color:var(--muted)}
+.section-h{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 6px;gap:8px}
+.section-h h2{font-size:1rem}
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:4px;border-radius:10px;overflow-x:auto}
+.tabs button{border:0;background:none;padding:6px 12px;border-radius:8px;cursor:pointer;color:var(--muted);white-space:nowrap;font-weight:500}
+.tabs button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+
+/* forms */
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:.8rem;color:var(--muted);font-weight:500}
+input,select,textarea{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:9px;padding:9px 11px;min-width:0}
+textarea{resize:vertical;min-height:84px}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:560px){.grid2,.grid3{grid-template-columns:1fr}}
+.search{display:flex;gap:8px;flex-wrap:wrap}
+.search input{flex:1;min-width:160px}
+.search select{width:auto}
+
+/* sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,20,16,.42);z-index:40;display:flex;justify-content:flex-end}
+.sheet{background:var(--bg);width:min(640px,100%);height:100%;overflow:auto;box-shadow:var(--shadow);display:flex;flex-direction:column;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.sheet-head{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--line);padding:14px max(16px,env(safe-area-inset-right,0px)) 14px max(16px,env(safe-area-inset-left,0px));display:flex;gap:10px;align-items:center;z-index:2}
+.sheet-body{padding:16px max(16px,env(safe-area-inset-right,0px)) 40px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:16px}
+@media (max-width:760px){.scrim{align-items:flex-end}.sheet{height:94%;border-radius:16px 16px 0 0}}
+
+/* pipeline */
+.board{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(230px,1fr);gap:12px;overflow-x:auto;padding-bottom:8px}
+.col{background:var(--sunk);border-radius:var(--r);padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.col-h{display:flex;justify-content:space-between;align-items:baseline;padding:2px 4px 6px;gap:6px}
+.col-h b{font-family:var(--f-display);font-weight:600;font-size:.92rem}
+.deal{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:4px}
+.deal:hover{border-color:var(--accent)}
+.prob{height:4px;background:var(--line);border-radius:4px;overflow:hidden}
+.prob i{display:block;height:100%;background:var(--accent)}
+
+/* forecast */
+.qtable{width:100%;border-collapse:collapse;min-width:560px}
+.qtable th,.qtable td{padding:10px 12px;border-top:1px solid var(--line);text-align:start;white-space:nowrap}
+.qtable th{font-size:.78rem;color:var(--muted);font-weight:500;border-top:0}
+.qtable td.n{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.scroll-x{overflow-x:auto}
+.bars{display:flex;flex-direction:column;gap:12px;padding:16px}
+.bar-row{display:grid;grid-template-columns:90px 1fr;gap:10px;align-items:center}
+.bar-track{position:relative;height:26px;background:var(--sunk);border-radius:6px;overflow:hidden}
+.bar-track .w{position:absolute;inset-block:0;inset-inline-start:0;background:var(--accent);opacity:.9}
+.bar-track .o{position:absolute;inset-block:0;inset-inline-start:0;background:var(--accent);opacity:.25}
+.bar-track .lbl{position:absolute;inset-inline-start:8px;top:50%;transform:translateY(-50%);font:500 .78rem var(--f-num);color:var(--ink)}
+.bar-track .tgt{position:absolute;inset-block:0;width:2px;background:var(--warn)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);padding:0 16px 14px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px;vertical-align:-1px;background:var(--accent)}
+
+/* agent */
+.chat{display:flex;flex-direction:column;height:calc(100% - 0px);min-height:0}
+.chat-wrap{display:flex;flex-direction:column;gap:12px;height:100%}
+.msgs{flex:1;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:4px 2px 8px;min-height:260px}
+.msg{max-width:88%;padding:10px 14px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}
+.msg.user{align-self:flex-start;background:var(--accent);color:var(--accent-ink);border-end-start-radius:4px}
+.msg.assistant{align-self:flex-end;background:var(--surface);border:1px solid var(--line);border-end-end-radius:4px}
+[dir=ltr] .msg.user{align-self:flex-end} [dir=ltr] .msg.assistant{align-self:flex-start}
+.msg .meta{display:block;margin-top:6px;font-size:.74rem;color:var(--muted)}
+.composer{display:flex;gap:8px;align-items:flex-end;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:8px}
+.composer textarea{border:0;min-height:44px;max-height:160px;padding:8px;outline:none}
+.composer textarea:focus{outline:none}
+.composer .btn{flex:none;width:44px;height:44px;padding:0}
+.composer .btn svg{width:20px;height:20px}
+.head .btn.ghost svg{width:22px;height:22px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 12px;font-size:.82rem;cursor:pointer;color:var(--muted)}
+.chips button:hover{color:var(--ink);border-color:var(--accent)}
+.typing{align-self:flex-end;color:var(--muted);font-size:.85rem;padding:4px 10px}
+[dir=ltr] .typing{align-self:flex-start}
+
+/* auth */
+.auth{min-height:100%;display:grid;place-items:center;padding:24px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.auth .card{width:min(400px,100%);padding:26px;display:flex;flex-direction:column;gap:14px}
+.toast{position:fixed;inset-inline:0;bottom:calc(84px + env(safe-area-inset-bottom,0px));margin:auto;width:max-content;max-width:calc(100% - 32px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:60;font-size:.9rem;box-shadow:var(--shadow)}
+.timeline .item{padding:10px 0}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:.9rem}
+.kv dt{color:var(--muted)} .kv dd{margin:0;overflow-wrap:anywhere}
+.contact-actions a{font-size:.82rem}
+.mobile-only{display:none}
+@media (max-width:760px){.mobile-only{display:inline}}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:slide .18s ease-out}@keyframes slide{from{transform:translateY(12px);opacity:.6}}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<div id="toast" class="toast" hidden></div>
+<script>
+"use strict";
+const SUPABASE_URL = "https://kucgdgzrblvqcsouuemq.supabase.co";
+const SUPABASE_KEY = "sb_publishable_irsOUMPoE7nrSCgRLZagLw_-6D5P8Q-";
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const TZ = "Africa/Cairo";
+
+/* ---------- i18n ---------- */
+const T = {
+  ar:{today:"النهارده",leads:"العملاء",pipeline:"الصفقات",forecast:"التوقعات",agent:"وكيل",settings:"الإعدادات",
+    signin:"دخول",signup:"إنشاء الحساب",email:"الإيميل",password:"كلمة السر",signout:"خروج",firstTime:"أول مرة؟ أنشئ حسابك (حساب واحد بس مسموح)",haveAcc:"عندك حساب؟ ادخل",
+    checkEmail:"اتبعتلك إيميل تأكيد. افتحه وبعدين ادخل.",
+    qComm:"عمولتك المتوقعة الربع ده",openPipe:"صفقات مفتوحة",wonQ:"اتقفل الربع ده",overdue:"متأخر",tasksToday:"مطلوب النهارده",
+    drafts:"رسايل مستنية مراجعتك",noTasks:"مفيش مهام النهارده. اطلب من وكيل يجهزلك قايمة مدارس.",noDrafts:"مفيش مسودات.",
+    done:"تم",send:"ابعت",markSent:"اتبعتت",copy:"نسخ",copied:"اتنسخ",
+    newLead:"مؤسسة جديدة",searchPh:"دور باسم المدرسة…",all:"الكل",city:"المدينة",area:"المنطقة",status:"الحالة",
+    st_new:"جديد",st_contacted:"اتواصلنا",st_qualified:"مؤهل",st_unqualified:"غير مؤهل",st_customer:"عميل",st_lost:"خسرناه",
+    name:"الاسم",name_en:"الاسم بالإنجليزي",type:"النوع",category:"الفئة",phone:"التليفون",website:"الموقع",students:"عدد الطلاب",fees:"مستوى المصاريف",
+    current_system:"النظام الحالي",source:"المصدر",notes:"ملاحظات",address:"العنوان",save:"حفظ",cancel:"إلغاء",del:"حذف",edit:"تعديل",close:"قفل",
+    ty_school:"مدرسة",ty_university:"جامعة",ty_institute:"معهد",ty_nursery:"حضانة",ty_other:"أخرى",
+    fe_low:"منخفضة",fe_mid:"متوسطة",fe_high:"عالية",
+    contacts:"جهات الاتصال",addContact:"إضافة شخص",role:"الوظيفة",decision:"دوره في القرار",
+    dr_decision_maker:"صاحب القرار",dr_influencer:"مؤثر",dr_user:"مستخدم",dr_gatekeeper:"بوابة",
+    whatsapp:"واتساب",opps:"الفرص",addOpp:"فرصة جديدة",activities:"النشاطات",logAct:"سجل نشاط",planTask:"جدول مهمة",
+    a_call:"مكالمة",a_whatsapp:"واتساب",a_email:"إيميل",a_meeting:"اجتماع",a_visit:"زيارة",a_note:"ملاحظة",a_task:"مهمة",
+    subject:"العنوان",details:"التفاصيل",outcome:"النتيجة",due:"الميعاد",enroll:"ابدأ تسلسل متابعة",enrolled:"التسلسل بدأ واتحطت مهامه",
+    stage:"المرحلة",sg_discovery:"اكتشاف",sg_demo:"عرض توضيحي",sg_proposal:"عرض سعر",sg_negotiation:"تفاوض",sg_won:"اتقفلت",sg_lost:"خسرناها",
+    pps:"سعر الطالب/سنة",discount:"خصم %",commPct:"عمولة %",prob:"الاحتمال %",close_date:"تاريخ القفل المتوقع",dealValue:"قيمة الصفقة",commission:"عمولتك",lost_reason:"سبب الخسارة",
+    weighted:"المرجّح",quarter:"الربع",deals:"صفقات",value:"القيمة",wonV:"اتقفل",commW:"عمولة مرجّحة",commWon:"عمولة مؤكدة",target:"الهدف",
+    fcNote:"المرجّح = قيمة كل صفقة × احتمال مرحلتها. الصفقات من غير تاريخ قفل مش داخلة في أي ربع.",noDate:"بدون تاريخ",
+    agentHello:"أهلاً يا أحمد، أنا وكيل. أقدر أجيبلك مدارس، أقيّمها، أكتب إيميلات ورسايل، أسجل مكالماتك، وأحسبلك التوقعات. اكتبلي عربي أو إنجليزي.",
+    agentPh:"اكتب لوكيل… مثلاً: كلمت مدير مدرسة النيل وطلب ديمو الخميس 11 الصبح",
+    q1:"هاتلي 10 مدارس لغات في سموحة وضيفهم",q2:"إيه المطلوب مني النهارده؟",q3:"قيّم كل العملاء الجداد",q4:"اكتب إيميل تعريفي لأعلى 3 مدارس",q5:"Forecast for this quarter",
+    newChat:"محادثة جديدة",cost:"التكلفة",thinking:"وكيل بيشتغل…",
+    noKey:"لازم تضيف مفتاح Anthropic API من الإعدادات الأول.",budgetHit:"وصلت للحد الشهري للمساعد. تقدر تزوده من الإعدادات.",
+    lang:"اللغة",apiKey:"مفتاح Anthropic API",apiKeySaved:"المفتاح متسجل ✓ (مش بيتعرض تاني)",apiKeyNone:"مفيش مفتاح لسه",apiKeyPh:"sk-ant-…",
+    model:"موديل المساعد",m_haiku:"Haiku 5.5 — أرخص (موصى به)",m_sonnet:"Sonnet 5.5 — أذكى وأغلى 20 مرة",
+    budget:"حد الصرف الشهري للمساعد ($)",spent:"اتصرف الشهر ده",defPrice:"السعر الافتراضي للطالب (جنيه)",qTarget:"هدف العمولة كل ربع (جنيه)",
+    senderName:"اسمك في الرسايل",senderEmail:"إيميل الشغل",signature:"التوقيع",saved:"اتحفظ",
+    cadences:"تسلسلات المتابعة",newCad:"تسلسل جديد",cadName:"اسم التسلسل",day:"اليوم",addStep:"إضافة خطوة",steps:"الخطوات",
+    egp:"ج.م",inst:"المؤسسة",pick:"اختار…",required:"الاسم مطلوب",confirmDel:"متأكد؟ اضغط تاني للحذف",
+    callBtn:"اتصل",waBtn:"واتساب",mailBtn:"إيميل",lastAct:"آخر نشاط",score:"التقييم",nextStep:"الخطوة الجاية",
+    openSchool:"افتح",draftFor:"مسودة لـ",enrollPick:"اختار التسلسل"},
+  en:{today:"Today",leads:"Leads",pipeline:"Pipeline",forecast:"Forecast",agent:"Wakeel",settings:"Settings",
+    signin:"Sign in",signup:"Create account",email:"Email",password:"Password",signout:"Sign out",firstTime:"First time? Create your account (only one is allowed)",haveAcc:"Have an account? Sign in",
+    checkEmail:"We sent a confirmation email. Open it, then sign in.",
+    qComm:"Expected commission this quarter",openPipe:"Open pipeline",wonQ:"Won this quarter",overdue:"Overdue",tasksToday:"Due today",
+    drafts:"Drafts waiting for review",noTasks:"Nothing due today. Ask Wakeel to build you a list of schools.",noDrafts:"No drafts.",
+    done:"Done",send:"Send",markSent:"Mark sent",copy:"Copy",copied:"Copied",
+    newLead:"New institution",searchPh:"Search by school name…",all:"All",city:"City",area:"Area",status:"Status",
+    st_new:"New",st_contacted:"Contacted",st_qualified:"Qualified",st_unqualified:"Unqualified",st_customer:"Customer",st_lost:"Lost",
+    name:"Name",name_en:"English name",type:"Type",category:"Category",phone:"Phone",website:"Website",students:"Students",fees:"Fees level",
+    current_system:"Current system",source:"Source",notes:"Notes",address:"Address",save:"Save",cancel:"Cancel",del:"Delete",edit:"Edit",close:"Close",
+    ty_school:"School",ty_university:"University",ty_institute:"Institute",ty_nursery:"Nursery",ty_other:"Other",
+    fe_low:"Low",fe_mid:"Mid",fe_high:"High",
+    contacts:"Contacts",addContact:"Add person",role:"Job title",decision:"Decision role",
+    dr_decision_maker:"Decision maker",dr_influencer:"Influencer",dr_user:"User",dr_gatekeeper:"Gatekeeper",
+    whatsapp:"WhatsApp",opps:"Opportunities",addOpp:"New opportunity",activities:"Activities",logAct:"Log activity",planTask:"Schedule task",
+    a_call:"Call",a_whatsapp:"WhatsApp",a_email:"Email",a_meeting:"Meeting",a_visit:"Visit",a_note:"Note",a_task:"Task",
+    subject:"Subject",details:"Details",outcome:"Outcome",due:"Due",enroll:"Start a cadence",enrolled:"Cadence started and its tasks were added",
+    stage:"Stage",sg_discovery:"Discovery",sg_demo:"Demo",sg_proposal:"Proposal",sg_negotiation:"Negotiation",sg_won:"Won",sg_lost:"Lost",
+    pps:"Price / student / year",discount:"Discount %",commPct:"Commission %",prob:"Probability %",close_date:"Expected close",dealValue:"Deal value",commission:"Your commission",lost_reason:"Lost reason",
+    weighted:"Weighted",quarter:"Quarter",deals:"Deals",value:"Value",wonV:"Won",commW:"Weighted commission",commWon:"Earned commission",target:"Target",
+    fcNote:"Weighted = each deal's value × its stage probability. Deals without a close date are not counted in any quarter.",noDate:"No date",
+    agentHello:"Hi Ahmed, I'm Wakeel. I can find schools, score them, write emails and WhatsApp messages, log your calls and run your forecast. Write in Arabic or English.",
+    agentPh:"Tell Wakeel… e.g. Called Nile School's principal, wants a demo Thursday 11am",
+    q1:"Find 10 language schools in Smouha and add them",q2:"What do I need to do today?",q3:"Score all new leads",q4:"Draft an intro email to my top 3 schools",q5:"التوقعات للربع ده",
+    newChat:"New chat",cost:"Cost",thinking:"Wakeel is working…",
+    noKey:"Add your Anthropic API key in Settings first.",budgetHit:"Monthly agent budget reached. You can raise it in Settings.",
+    lang:"Language",apiKey:"Anthropic API key",apiKeySaved:"Key saved ✓ (never shown again)",apiKeyNone:"No key yet",apiKeyPh:"sk-ant-…",
+    model:"Agent model",m_haiku:"Haiku 5.5 — cheapest (recommended)",m_sonnet:"Sonnet 5.5 — smarter, ~20× the cost",
+    budget:"Monthly agent spend limit ($)",spent:"Spent this month",defPrice:"Default price per student (EGP)",qTarget:"Quarterly commission target (EGP)",
+    senderName:"Your name in messages",senderEmail:"Work email",signature:"Signature",saved:"Saved",
+    cadences:"Cadences",newCad:"New cadence",cadName:"Cadence name",day:"Day",addStep:"Add step",steps:"Steps",
+    egp:"EGP",inst:"Institution",pick:"Choose…",required:"Name is required",confirmDel:"Sure? Tap again to delete",
+    callBtn:"Call",waBtn:"WhatsApp",mailBtn:"Email",lastAct:"Last activity",score:"Score",nextStep:"Next step",
+    openSchool:"Open",draftFor:"Draft for",enrollPick:"Choose cadence"}
+};
+let LANG = (()=>{try{return localStorage.getItem("crm_lang")||"ar"}catch(e){return "ar"}})();
+const t = k => (T[LANG][k] ?? T.en[k] ?? k);
+function setLang(l){LANG=l;try{localStorage.setItem("crm_lang",l)}catch(e){};document.documentElement.lang=l;document.documentElement.dir=l==="ar"?"rtl":"ltr";render()}
+document.documentElement.lang=LANG;document.documentElement.dir=LANG==="ar"?"rtl":"ltr";
+
+/* ---------- helpers ---------- */
+const $ = (s,el=document)=>el.querySelector(s);
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = n => Number(n||0).toLocaleString(LANG==="ar"?"ar-EG":"en-US",{maximumFractionDigits:0});
+const money = n => `${fmt(n)} ${t("egp")}`;
+const fdate = d => d ? new Date(d).toLocaleDateString(LANG==="ar"?"ar-EG":"en-GB",{timeZone:TZ,day:"numeric",month:"short"}) : "";
+const fdt = d => d ? new Date(d).toLocaleString(LANG==="ar"?"ar-EG":"en-GB",{timeZone:TZ,day:"numeric",month:"short",hour:"numeric",minute:"2-digit"}) : "";
+const cairoDay = d => new Date(d).toLocaleDateString("en-CA",{timeZone:TZ});
+const todayStr = () => cairoDay(new Date());
+const qOf = d => { if(!d) return null; const x=new Date(d); return `${x.getFullYear()}-Q${Math.floor(x.getMonth()/3)+1}` };
+const curQ = () => qOf(new Date());
+function toast(msg){const el=$("#toast");el.textContent=msg;el.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>el.hidden=true,2600)}
+function waNum(p){ if(!p) return ""; let d=String(p).replace(/\D/g,""); if(d.startsWith("00")) d=d.slice(2); if(d.startsWith("0")) d="20"+d.slice(1); return d }
+function localInput(d){ // ISO -> value for datetime-local in Cairo
+  const x = d? new Date(d): new Date(Date.now()+86400000);
+  const p = new Intl.DateTimeFormat("en-CA",{timeZone:TZ,year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(x);
+  const g = k=>p.find(z=>z.type===k).value; return `${g("year")}-${g("month")}-${g("day")}T${g("hour")==="24"?"00":g("hour")}:${g("minute")}` }
+function fromLocalInput(v){ return v ? new Date(v+":00+03:00").toISOString() : null } // Egypt is UTC+3 (summer time) — adjust if Egypt changes clocks
+const sel = (name,opts,val,extra="") => `<select id="${name}" name="${name}" ${extra}>${opts.map(([v,l])=>`<option value="${esc(v)}" ${String(v)===String(val??"")?"selected":""}>${esc(l)}</option>`).join("")}</select>`;
+const ICONS = {
+  today:'<path d="M4 7h16M4 12h10M4 17h7"/><circle cx="18" cy="16" r="3"/>',
+  leads:'<path d="M3 21V9l9-5 9 5v12"/><path d="M9 21v-6h6v6"/>',
+  pipeline:'<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/>',
+  forecast:'<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
+  agent:'<path d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/>',
+  call:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/>',
+  whatsapp:'<path d="M21 11.5a8.4 8.4 0 0 1-12.4 7.4L3 21l2.1-5.4A8.4 8.4 0 1 1 21 11.5z"/>',
+  email:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+  meeting:'<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
+  visit:'<path d="M12 21s-7-6.2-7-11a7 7 0 1 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  note:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
+  task:'<path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>', x:'<path d="M18 6 6 18M6 6l12 12"/>', send:'<path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/>'
+};
+const icon = (n,c="") => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="${c}" aria-hidden="true">${ICONS[n]||ICONS.note}</svg>`;
+const STATUSES=["new","contacted","qualified","unqualified","customer","lost"];
+const STAGES=["discovery","demo","proposal","negotiation","won","lost"];
+const TYPES=["school","university","institute","nursery","other"];
+const ACTS=["call","whatsapp","email","meeting","visit","note"];
+const scoreCls = s => s==null?"":s>=70?"hi":s>=40?"mid":"lo";
+
+/* ---------- state ---------- */
+const S = { user:null, view:"today", settings:null, insts:[], opps:[], acts:[], cadences:[], hasKey:false, usage:0,
+  filter:{q:"",status:"",city:""}, sheet:null, chat:[], busy:false, authMode:"in" };
+(()=>{const h=location.hash.slice(1); if(["today","leads","pipeline","forecast","agent","settings"].includes(h)) S.view=h})();
+
+async function q(p){ const {data,error}=await p; if(error){toast(error.message);throw error} return data }
+async function loadAll(){
+  const [st,ins,op,ac,cd,hk,us] = await Promise.all([
+    sb.from("settings").select("*").maybeSingle(),
+    sb.from("institutions").select("*").order("updated_at",{ascending:false}).limit(2000),
+    sb.from("opportunities").select("*").order("updated_at",{ascending:false}),
+    sb.from("activities").select("*").order("created_at",{ascending:false}).limit(3000),
+    sb.from("cadences").select("*").order("created_at"),
+    sb.rpc("has_api_key"),
+    sb.from("agent_usage").select("cost_usd").gte("created_at", new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString())
+  ]);
+  S.settings=st.data||{default_price:300,commission_pct:20,agent_monthly_budget_usd:10,agent_model:"claude-haiku-5-5"};
+  S.insts=ins.data||[]; S.opps=op.data||[]; S.acts=ac.data||[]; S.cadences=cd.data||[]; S.hasKey=!!hk.data;
+  S.usage=(us.data||[]).reduce((a,x)=>a+Number(x.cost_usd),0);
+}
+const instById = id => S.insts.find(i=>i.id===id);
+
+/* ---------- render ---------- */
+function render(){
+  const root=$("#root");
+  if(!S.user){ root.innerHTML=authView(); bindAuth(); return }
+  const navs=["today","leads","pipeline","forecast","agent"];
+  const navBtn = v => `<button class="nav ${S.view===v?"on":""}" data-nav="${v}">${icon(v)}<span>${t(v)}</span></button>`;
+  root.innerHTML = `<div class="app">
+    <aside class="rail"><div class="brand"><div class="brand-mark">و</div><b>Wakeel CRM</b></div>
+      ${navs.map(navBtn).join("")}<div class="spacer"></div>${navBtn("settings")}</aside>
+    <main id="main">${viewHtml()}</main>
+    <nav class="tabbar">${navs.map(navBtn).join("")}</nav></div>
+    ${S.sheet?sheetHtml():""}`;
+  root.querySelectorAll("[data-nav]").forEach(b=>b.onclick=()=>{S.view=b.dataset.nav;location.hash=S.view;render()});
+  bindView(); if(S.sheet) bindSheet();
+  if(S.view==="agent"){const m=$("#msgs");if(m)m.scrollTop=m.scrollHeight}
+}
+function viewHtml(){ return ({today:todayView,leads:leadsView,pipeline:pipelineView,forecast:forecastView,agent:agentView,settings:settingsView})[S.view]() }
+function pageHead(title,right=""){ const gear = `<button class="btn ghost sm" data-nav="settings" aria-label="${t("settings")}" style="padding:6px">${icon("settings")}</button>`;
+  return `<div class="head"><h1>${esc(title)}</h1><div class="row">${right}<span class="mobile-only">${S.view!=="settings"?gear:""}</span></div></div>` }
+
+/* auth */
+function authView(){ const up=S.authMode==="up"; return `<div class="auth"><form class="card" id="authForm">
+  <div class="brand" style="padding:0"><div class="brand-mark">و</div><b>Wakeel CRM</b></div>
+  <h1>${up?t("signup"):t("signin")}</h1>
+  <div class="field"><label for="ae">${t("email")}</label><input id="ae" type="email" required autocomplete="email"></div>
+  <div class="field"><label for="ap">${t("password")}</label><input id="ap" type="password" required minlength="8" autocomplete="${up?"new-password":"current-password"}"></div>
+  <button class="btn primary" type="submit">${up?t("signup"):t("signin")}</button>
+  <button class="btn ghost sm" type="button" id="authSwitch">${up?t("haveAcc"):t("firstTime")}</button>
+  <div class="row" style="justify-content:center"><button class="btn ghost sm" type="button" id="authLang">${LANG==="ar"?"English":"عربي"}</button></div>
+  <p class="small muted" id="authMsg"></p></form></div>` }
+function bindAuth(){
+  $("#authSwitch").onclick=()=>{S.authMode=S.authMode==="up"?"in":"up";render()};
+  $("#authLang").onclick=()=>setLang(LANG==="ar"?"en":"ar");
+  $("#authForm").onsubmit=async e=>{e.preventDefault();const email=$("#ae").value.trim(),password=$("#ap").value;
+    const r = S.authMode==="up"? await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}}) : await sb.auth.signInWithPassword({email,password});
+    if(r.error){$("#authMsg").textContent=r.error.message;return}
+    if(S.authMode==="up" && !r.data.session){$("#authMsg").textContent=t("checkEmail");S.authMode="in";return}
+  };
+}
+
+/* today */
+function todayView(){
+  const cq=curQ(), td=todayStr(), now=new Date();
+  const open=S.opps.filter(o=>!["won","lost"].includes(o.stage));
+  const qOpen=open.filter(o=>qOf(o.expected_close)===cq);
+  const wonQ=S.opps.filter(o=>o.stage==="won"&&qOf(o.closed_at)===cq);
+  const wComm=qOpen.reduce((a,o)=>a+o.commission*o.probability/100,0)+wonQ.reduce((a,o)=>a+Number(o.commission),0);
+  const planned=S.acts.filter(a=>a.status==="planned"&&a.due_at).sort((a,b)=>new Date(a.due_at)-new Date(b.due_at));
+  const overdue=planned.filter(a=>cairoDay(a.due_at)<td), dueToday=planned.filter(a=>cairoDay(a.due_at)===td);
+  const drafts=S.acts.filter(a=>a.status==="draft");
+  const tgt=Number(S.settings.quarterly_target_egp||0);
+  return `<div class="page">${pageHead(t("today"), `<span class="muted small">${new Date().toLocaleDateString(LANG==="ar"?"ar-EG":"en-GB",{timeZone:TZ,weekday:"long",day:"numeric",month:"long"})}</span>`)}
+  <div class="kpis">
+    <div class="card kpi"><span class="label">${t("qComm")} · ${cq}</span><span class="val">${money(wComm)}</span><span class="sub">${tgt?`${t("target")}: ${money(tgt)} · ${Math.round(wComm/tgt*100)}%`:`${t("wonV")}: ${money(wonQ.reduce((a,o)=>a+Number(o.commission),0))}`}</span></div>
+    <div class="card kpi"><span class="label">${t("openPipe")}</span><span class="val">${money(open.reduce((a,o)=>a+Number(o.amount),0))}</span><span class="sub">${fmt(open.length)} ${t("deals")}</span></div>
+    <div class="card kpi"><span class="label">${t("wonQ")}</span><span class="val">${money(wonQ.reduce((a,o)=>a+Number(o.amount),0))}</span><span class="sub">${fmt(wonQ.length)} ${t("deals")}</span></div>
+    <div class="card kpi"><span class="label">${t("overdue")}</span><span class="val" style="color:${overdue.length?"var(--bad)":"inherit"}">${fmt(overdue.length)}</span><span class="sub">${t("tasksToday")}: ${fmt(dueToday.length)}</span></div>
+  </div>
+  <section class="card"><div class="section-h"><h2>${t("tasksToday")}</h2><span class="chip">${fmt(overdue.length+dueToday.length)}</span></div>
+    <div class="list">${[...overdue,...dueToday].map(a=>taskRow(a,cairoDay(a.due_at)<td)).join("")||`<div class="empty">${t("noTasks")}</div>`}</div></section>
+  <section class="card"><div class="section-h"><h2>${t("drafts")}</h2><span class="chip draft">${fmt(drafts.length)}</span></div>
+    <div class="list">${drafts.map(draftRow).join("")||`<div class="empty">${t("noDrafts")}</div>`}</div></section>
+  </div>` }
+function contactFor(a){ return a.contact_id? null : null }
+function reachLinks(inst,contact,text="",subject=""){
+  const phone=contact?.phone||inst?.phone, wa=contact?.whatsapp||contact?.phone||inst?.phone, mail=contact?.email||inst?.email;
+  const out=[];
+  if(phone) out.push(`<a class="btn sm" href="tel:${esc(phone)}">${t("callBtn")}</a>`);
+  if(wa) out.push(`<a class="btn sm" target="_blank" rel="noopener" href="https://wa.me/${waNum(wa)}${text?`?text=${encodeURIComponent(text)}`:""}">${t("waBtn")}</a>`);
+  if(mail) out.push(`<a class="btn sm" href="mailto:${esc(mail)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(text)}">${t("mailBtn")}</a>`);
+  return out.join("") }
+function taskRow(a,late){ const inst=instById(a.institution_id);
+  return `<div class="item"><div class="ico ${a.type}">${icon(a.type)}</div><div class="grow">
+    <div class="title">${esc(a.subject||t("a_"+a.type))}</div>
+    <div class="small muted">${inst?`<a href="#" data-open="${inst.id}">${esc(inst.name)}</a> · `:""}${late?`<span class="chip overdue">${t("overdue")}</span> `:""}${fdt(a.due_at)}</div>
+    ${a.body?`<div class="small muted">${esc(a.body)}</div>`:""}
+    <div class="row contact-actions" style="margin-top:6px">${reachLinks(inst,null)}<button class="btn sm primary" data-done="${a.id}">${t("done")}</button></div></div></div>` }
+function draftRow(a){ const inst=instById(a.institution_id); const text=a.body||"";
+  return `<div class="item"><div class="ico ${a.type}">${icon(a.type)}</div><div class="grow">
+    <div class="title">${esc(a.subject||t("a_"+a.type))}</div>
+    <div class="small muted">${inst?`${t("draftFor")} <a href="#" data-open="${inst.id}">${esc(inst.name)}</a>`:""}</div>
+    <div class="small" style="white-space:pre-wrap;margin-top:6px;background:var(--sunk);padding:10px;border-radius:8px">${esc(text)}</div>
+    <div class="row" style="margin-top:8px">${a.type==="email"?reachLinks(inst,null,text,a.subject||"").replace(/<a class="btn sm" (href="tel|target)[^>]*>.*?<\/a>/g,""):reachLinks(inst,null,text).replace(/<a class="btn sm" href="(tel|mailto)[^>]*>.*?<\/a>/g,"")}
+    <button class="btn sm" data-copy="${a.id}">${t("copy")}</button><button class="btn sm primary" data-sent="${a.id}">${t("markSent")}</button><button class="btn sm ghost danger" data-del-act="${a.id}">${t("del")}</button></div></div></div>` }
+
+/* leads */
+function leadsView(){
+  const f=S.filter, cities=[...new Set(S.insts.map(i=>i.city).filter(Boolean))].sort();
+  const lastAct = id => S.acts.find(a=>a.institution_id===id&&a.status==="done");
+  const list=S.insts.filter(i=>(!f.status||i.status===f.status)&&(!f.city||i.city===f.city)&&(!f.q||`${i.name} ${i.name_en||""} ${i.area||""}`.toLowerCase().includes(f.q.toLowerCase())));
+  return `<div class="page">${pageHead(t("leads"),`<button class="btn primary" id="newLead">${icon("plus")}<span>${t("newLead")}</span></button>`)}
+  <div class="search"><input id="fq" type="search" placeholder="${t("searchPh")}" value="${esc(f.q)}">
+    ${sel("fs",[["",`${t("status")}: ${t("all")}`],...STATUSES.map(s=>[s,t("st_"+s)])],f.status)}
+    ${sel("fc",[["",`${t("city")}: ${t("all")}`],...cities.map(c=>[c,c])],f.city)}</div>
+  <div class="tabs" role="tablist">${["",...STATUSES].map(s=>`<button class="${f.status===s?"on":""}" data-st="${s}">${s?t("st_"+s):t("all")} <span class="num">${fmt(s?S.insts.filter(i=>i.status===s).length:S.insts.length)}</span></button>`).join("")}</div>
+  <section class="card"><div class="list">${list.map(i=>{const la=lastAct(i.id);return `<div class="item click" data-open="${i.id}">
+      <div class="ico">${icon("leads")}</div><div class="grow"><div class="row"><span class="title">${esc(i.name)}</span><span class="chip ${i.status}">${t("st_"+i.status)}</span></div>
+      <div class="small muted">${[t("ty_"+i.type),i.category,[i.area,i.city].filter(Boolean).join("، "),i.students_count?`${fmt(i.students_count)} ${t("students")}`:""].filter(Boolean).map(esc).join(" · ")}</div>
+      ${i.next_step?`<div class="small">${t("nextStep")}: ${esc(i.next_step)} ${i.next_step_date?`· ${fdate(i.next_step_date)}`:""}</div>`:la?`<div class="small muted">${t("lastAct")}: ${esc(la.subject||t("a_"+la.type))} · ${fdate(la.done_at||la.created_at)}</div>`:""}
+      </div><span class="score ${scoreCls(i.score)}" title="${t("score")}">${i.score??"–"}</span></div>`}).join("")||`<div class="empty">${t("noTasks")}</div>`}</div></section></div>` }
+
+/* pipeline */
+function pipelineView(){
+  return `<div class="page" style="max-width:none">${pageHead(t("pipeline"),`<button class="btn primary" id="newOpp">${icon("plus")}<span>${t("addOpp")}</span></button>`)}
+  <div class="board">${STAGES.map(s=>{const ds=S.opps.filter(o=>o.stage===s);return `<div class="col"><div class="col-h"><b>${t("sg_"+s)}</b><span class="small muted num">${money(ds.reduce((a,o)=>a+Number(o.amount),0))}</span></div>
+    ${ds.map(o=>{const i=instById(o.institution_id);return `<div class="deal" data-opp="${o.id}"><div class="title small">${esc(i?.name||o.name)}</div>
+      <div class="small muted">${esc(o.name)}</div><div class="row small" style="justify-content:space-between"><span class="num">${money(o.amount)}</span><span class="muted num">${o.probability}%</span></div>
+      <div class="prob"><i style="width:${o.probability}%"></i></div><div class="small muted">${t("commission")}: <span class="num">${money(o.commission)}</span>${o.expected_close?` · ${fdate(o.expected_close)}`:""}</div></div>`}).join("")}</div>`}).join("")}</div></div>` }
+
+/* forecast */
+function forecastRows(){
+  const by={}; const add=k=>by[k]??={deals:0,value:0,weighted:0,commW:0,won:0,commWon:0};
+  for(const o of S.opps){ if(o.stage==="lost") continue;
+    const k = o.stage==="won"? (qOf(o.closed_at)||"–") : (qOf(o.expected_close)||"–"); const b=add(k); b.deals++;
+    if(o.stage==="won"){b.won+=+o.amount;b.commWon+=+o.commission}else{b.value+=+o.amount;b.weighted+=o.amount*o.probability/100;b.commW+=o.commission*o.probability/100}}
+  // always show current + next 3 quarters
+  const d=new Date(); for(let i=0;i<4;i++){const x=new Date(d.getFullYear(),d.getMonth()+i*3,1);add(qOf(x))}
+  return Object.entries(by).sort(([a],[b])=>a==="–"?1:b==="–"?-1:a.localeCompare(b)) }
+function forecastView(){
+  const rows=forecastRows(), tgt=Number(S.settings.quarterly_target_egp||0);
+  const max=Math.max(1,tgt,...rows.map(([,b])=>b.commWon+b.value*(S.settings.commission_pct||20)/100));
+  return `<div class="page">${pageHead(t("forecast"))}
+  <section class="card"><div class="section-h"><h2>${t("commW")} / ${t("quarter")}</h2></div>
+    <div class="bars">${rows.filter(([k])=>k!=="–").map(([k,b])=>{const firm=b.commWon+b.commW, open=b.commWon+b.value*(S.settings.commission_pct||20)/100;
+      return `<div class="bar-row"><span class="num small">${k}</span><div class="bar-track"><div class="o" style="width:${open/max*100}%"></div><div class="w" style="width:${firm/max*100}%"></div>${tgt?`<div class="tgt" style="inset-inline-start:${tgt/max*100}%"></div>`:""}<span class="lbl">${money(firm)}</span></div></div>`}).join("")}</div>
+    <div class="legend"><span><i></i>${t("commW")} + ${t("commWon")}</span><span><i style="opacity:.25"></i>${t("openPipe")}</span>${tgt?`<span><i style="background:var(--warn);width:3px"></i>${t("target")} ${money(tgt)}</span>`:""}</div></section>
+  <section class="card"><div class="scroll-x"><table class="qtable"><thead><tr><th>${t("quarter")}</th><th>${t("deals")}</th><th>${t("value")}</th><th>${t("weighted")}</th><th>${t("wonV")}</th><th>${t("commW")}</th><th>${t("commWon")}</th></tr></thead>
+    <tbody>${rows.map(([k,b])=>`<tr><td class="n">${k==="–"?t("noDate"):k}</td><td class="n">${fmt(b.deals)}</td><td class="n">${fmt(b.value)}</td><td class="n">${fmt(b.weighted)}</td><td class="n">${fmt(b.won)}</td><td class="n">${fmt(b.commW)}</td><td class="n">${fmt(b.commWon)}</td></tr>`).join("")}</tbody></table></div>
+    <p class="small muted" style="padding:0 16px 14px;margin:0">${t("fcNote")} ${t("egp")}.</p></section></div>` }
+
+/* agent */
+function agentView(){
+  const qs=["q1","q2","q3","q4","q5"];
+  return `<div class="page chat-wrap" style="height:100%">${pageHead(t("agent"),`<span class="small muted">${t("spent")}: <span class="num">$${S.usage.toFixed(3)}</span> / $${Number(S.settings.agent_monthly_budget_usd||10)}</span><button class="btn sm" id="newChat">${t("newChat")}</button>`)}
+  ${!S.hasKey?`<div class="card pad small" style="background:var(--warn-soft);border-color:transparent">${t("noKey")} <a href="#settings" data-nav="settings">${t("settings")}</a></div>`:""}
+  <div class="msgs" id="msgs"><div class="msg assistant">${esc(t("agentHello"))}</div>
+    ${S.chat.map(m=>`<div class="msg ${m.role}">${esc(m.content)}${m.meta?`<span class="meta">${esc(m.meta)}</span>`:""}</div>`).join("")}
+    ${S.busy?`<div class="typing">${t("thinking")}</div>`:""}</div>
+  <div class="chips">${qs.map(k=>`<button data-q="${esc(t(k))}">${esc(t(k))}</button>`).join("")}</div>
+  <form class="composer" id="composer"><textarea id="cin" rows="1" placeholder="${esc(t("agentPh"))}" ${S.busy?"disabled":""}></textarea>
+    <button class="btn primary" type="submit" ${S.busy?"disabled":""} aria-label="${t("send")}">${icon("send")}</button></form></div>` }
+async function loadChat(){ const d=await q(sb.from("agent_messages").select("role,content,created_at").order("created_at",{ascending:false}).limit(40)); S.chat=d.reverse() }
+async function sendAgent(text){
+  if(!text.trim()||S.busy) return; S.chat.push({role:"user",content:text}); S.busy=true; render();
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/agent`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_KEY},body:JSON.stringify({message:text})});
+    const j=await r.json();
+    if(!r.ok){ S.chat.push({role:"assistant",content: j.error==="missing_api_key"?t("noKey"): j.error==="budget"?t("budgetHit"): (j.message||"Error")}) }
+    else { S.chat.push({role:"assistant",content:j.reply||"✓",meta:`${t("cost")}: $${j.usage.cost_usd.toFixed(4)}${j.usage.web_searches?` · 🔎 ${j.usage.web_searches}`:""}`}); S.usage=j.usage.month_spent_usd;
+      if(j.actions?.length) await loadAll() }
+  }catch(e){ S.chat.push({role:"assistant",content:String(e.message||e)}) }
+  S.busy=false; render(); setTimeout(()=>$("#cin")?.focus(),30)
+}
+
+/* settings */
+function settingsView(){ const s=S.settings;
+  return `<div class="page" style="max-width:760px">${pageHead(t("settings"),`<button class="btn sm" id="signout">${t("signout")}</button>`)}
+  <form class="card pad" id="setForm" style="display:flex;flex-direction:column;gap:14px">
+    <div class="grid2"><div class="field"><label for="s_lang">${t("lang")}</label>${sel("s_lang",[["ar","العربية"],["en","English"]],LANG)}</div>
+      <div class="field"><label for="s_model">${t("model")}</label>${sel("s_model",[["claude-haiku-5-5",t("m_haiku")],["claude-sonnet-5-5",t("m_sonnet")]],s.agent_model)}</div></div>
+    <div class="field"><label for="s_key">${t("apiKey")} · <span class="${S.hasKey?"":"muted"}">${S.hasKey?t("apiKeySaved"):t("apiKeyNone")}</span></label><input id="s_key" type="password" autocomplete="off" placeholder="${t("apiKeyPh")}"></div>
+    <div class="grid3"><div class="field"><label for="s_budget">${t("budget")}</label><input id="s_budget" type="number" min="0" step="0.5" value="${s.agent_monthly_budget_usd}"></div>
+      <div class="field"><label for="s_price">${t("defPrice")}</label><input id="s_price" type="number" min="0" value="${s.default_price}"></div>
+      <div class="field"><label for="s_comm">${t("commPct")}</label><input id="s_comm" type="number" min="0" max="100" step="0.5" value="${s.commission_pct}"></div></div>
+    <div class="grid3"><div class="field"><label for="s_tgt">${t("qTarget")}</label><input id="s_tgt" type="number" min="0" value="${s.quarterly_target_egp||0}"></div>
+      <div class="field"><label for="s_sn">${t("senderName")}</label><input id="s_sn" value="${esc(s.sender_name||"")}"></div>
+      <div class="field"><label for="s_se">${t("senderEmail")}</label><input id="s_se" type="email" value="${esc(s.sender_email||"")}"></div></div>
+    <div class="field"><label for="s_sig">${t("signature")}</label><textarea id="s_sig" rows="3">${esc(s.signature||"")}</textarea></div>
+    <div class="row" style="justify-content:space-between"><span class="small muted">${t("spent")}: <span class="num">$${S.usage.toFixed(3)}</span></span><button class="btn primary" type="submit">${t("save")}</button></div>
+  </form>
+  <section class="card"><div class="section-h"><h2>${t("cadences")}</h2><button class="btn sm" id="newCad">${icon("plus")}${t("newCad")}</button></div>
+    <div class="list">${S.cadences.map(c=>`<div class="item click" data-cad="${c.id}"><div class="ico">${icon("task")}</div><div class="grow"><div class="title">${esc(c.name)}</div><div class="small muted">${(c.steps||[]).map(s=>`${t("day")} ${s.day}: ${t("a_"+s.type)}`).join(" · ")}</div></div></div>`).join("")}</div></section></div>` }
+
+/* ---------- sheets ---------- */
+function openSheet(kind,id,extra={}){ S.sheet={kind,id,...extra}; render() }
+function closeSheet(){ S.sheet=null; render() }
+function sheetHtml(){ const s=S.sheet; let title="",body="";
+  if(s.kind==="inst"){ const i=instById(s.id); if(!i) return ""; title=i.name; body=instSheet(i) }
+  if(s.kind==="instForm"){ const i=s.id?instById(s.id):{type:"school",city:"الإسكندرية"}; title=s.id?t("edit"):t("newLead"); body=instForm(i) }
+  if(s.kind==="opp"){ const o=s.id?S.opps.find(x=>x.id===s.id):{institution_id:s.inst||"",stage:"discovery",price_per_student:S.settings.default_price,discount_pct:0,commission_pct:S.settings.commission_pct,students:instById(s.inst)?.students_count||0}; title=s.id?(instById(o.institution_id)?.name||o.name):t("addOpp"); body=oppForm(o) }
+  if(s.kind==="cad"){ const c=s.id?S.cadences.find(x=>x.id===s.id):{name:"",steps:[{day:0,type:"call",title:""}]}; title=s.id?c.name:t("newCad"); body=cadForm(c) }
+  return `<div class="scrim" id="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-head"><h2 class="grow">${esc(title)}</h2><button class="btn ghost sm" id="closeSheet" aria-label="${t("close")}" style="padding:6px">${icon("x")}</button></div><div class="sheet-body">${body}</div></div></div>` }
+function instSheet(i){
+  const cs=S.insts&&[], contacts=S._contacts||[];
+  const opps=S.opps.filter(o=>o.institution_id===i.id), acts=S.acts.filter(a=>a.institution_id===i.id);
+  return `<div class="row"><span class="chip ${i.status}">${t("st_"+i.status)}</span><span class="score ${scoreCls(i.score)}">${i.score??"–"}</span><span class="small muted">${[t("ty_"+i.type),i.category].filter(Boolean).map(esc).join(" · ")}</span><span class="grow"></span><button class="btn sm" data-edit-inst="${i.id}">${t("edit")}</button></div>
+  <div class="row">${reachLinks(i,null)}${i.website?`<a class="btn sm" target="_blank" rel="noopener" href="${esc(/^https?:/.test(i.website)?i.website:"https://"+i.website)}">${t("website")}</a>`:""}</div>
+  <div class="field"><label for="i_status">${t("status")}</label>${sel("i_status",STATUSES.map(s=>[s,t("st_"+s)]),i.status)}</div>
+  <dl class="kv">${[["city",[i.area,i.city].filter(Boolean).join("، ")],["address",i.address],["phone",i.phone],["email",i.email],["students",i.students_count&&fmt(i.students_count)],["fees",i.fees_level&&t("fe_"+i.fees_level)],["current_system",i.current_system],["nextStep",[i.next_step,i.next_step_date&&fdate(i.next_step_date)].filter(Boolean).join(" · ")],["score",i.score_notes],["source",i.source],["notes",i.notes]].filter(([,v])=>v).map(([k,v])=>`<dt>${t(k)}</dt><dd>${/^https?:/.test(v)?`<a href="${esc(v)}" target="_blank" rel="noopener">${esc(v)}</a>`:esc(v)}</dd>`).join("")}</dl>
+  <section class="card"><div class="section-h"><h3>${t("contacts")}</h3><button class="btn sm" id="tglContact">${icon("plus")}${t("addContact")}</button></div>
+    <div class="list">${contacts.map(c=>`<div class="item"><div class="ico">${icon("leads")}</div><div class="grow"><div class="title">${esc(c.full_name)}</div><div class="small muted">${[c.role,c.decision_role&&t("dr_"+c.decision_role)].filter(Boolean).map(esc).join(" · ")}</div><div class="row" style="margin-top:6px">${reachLinks(i,c)}</div></div><button class="btn ghost sm danger" data-del-contact="${c.id}">${t("del")}</button></div>`).join("")||`<div class="empty small">–</div>`}</div>
+    <form id="contactForm" class="pad" hidden style="display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line)">
+      <div class="grid2"><div class="field"><label for="c_name">${t("name")}</label><input id="c_name" required></div><div class="field"><label for="c_role">${t("role")}</label><input id="c_role"></div></div>
+      <div class="grid3"><div class="field"><label for="c_phone">${t("phone")}</label><input id="c_phone" inputmode="tel"></div><div class="field"><label for="c_wa">${t("whatsapp")}</label><input id="c_wa" inputmode="tel"></div><div class="field"><label for="c_email">${t("email")}</label><input id="c_email" type="email"></div></div>
+      <div class="field"><label for="c_dr">${t("decision")}</label>${sel("c_dr",[["",t("pick")],...["decision_maker","influencer","user","gatekeeper"].map(d=>[d,t("dr_"+d)])],"")}</div>
+      <div class="row"><button class="btn primary" type="submit">${t("save")}</button></div></form></section>
+  <section class="card"><div class="section-h"><h3>${t("opps")}</h3><button class="btn sm" data-new-opp="${i.id}">${icon("plus")}${t("addOpp")}</button></div>
+    <div class="list">${opps.map(o=>`<div class="item click" data-opp="${o.id}"><div class="grow"><div class="row"><span class="title">${esc(o.name)}</span><span class="chip ${o.stage}">${t("sg_"+o.stage)}</span></div><div class="small muted num">${money(o.amount)} · ${t("commission")} ${money(o.commission)} · ${o.probability}%</div></div></div>`).join("")||`<div class="empty small">–</div>`}</div></section>
+  <section class="card pad" style="display:flex;flex-direction:column;gap:10px"><div class="row" style="justify-content:space-between"><h3>${t("logAct")}</h3>
+      ${S.cadences.length?`<div class="row">${sel("cadPick",[["",t("enrollPick")],...S.cadences.map(c=>[c.id,c.name])],"")}<button class="btn sm" id="enrollBtn">${t("enroll")}</button></div>`:""}</div>
+    <form id="actForm" style="display:flex;flex-direction:column;gap:10px">
+      <div class="grid2"><div class="field"><label for="a_type">${t("type")}</label>${sel("a_type",[...ACTS,"task"].map(a=>[a,t("a_"+a)]),"call")}</div>
+        <div class="field"><label for="a_mode">${t("status")}</label>${sel("a_mode",[["done",t("logAct")],["planned",t("planTask")]],"done")}</div></div>
+      <div class="field"><label for="a_subj">${t("subject")}</label><input id="a_subj" required></div>
+      <div class="field"><label for="a_body">${t("details")} / ${t("outcome")}</label><textarea id="a_body" rows="2"></textarea></div>
+      <div class="field" id="a_dueWrap" hidden><label for="a_due">${t("due")}</label><input id="a_due" type="datetime-local" value="${localInput()}"></div>
+      <div class="row"><button class="btn primary" type="submit">${t("save")}</button></div></form></section>
+  <section><h3 style="margin-bottom:6px">${t("activities")}</h3><div class="list timeline">${acts.map(a=>`<div class="item"><div class="ico ${a.type}">${icon(a.type)}</div><div class="grow"><div class="row"><span class="title small">${esc(a.subject||t("a_"+a.type))}</span>${a.status!=="done"?`<span class="chip ${a.status==="planned"?"due":a.status}">${a.status==="planned"?fdt(a.due_at):a.status}</span>`:""}</div>${a.body?`<div class="small muted" style="white-space:pre-wrap">${esc(a.body)}</div>`:""}${a.outcome?`<div class="small">${esc(a.outcome)}</div>`:""}<div class="small muted">${fdt(a.done_at||a.created_at)}</div></div>${a.status==="planned"?`<button class="btn sm" data-done="${a.id}">${t("done")}</button>`:""}</div>`).join("")||`<div class="empty small">–</div>`}</div></section>` }
+function instForm(i){ const f=(k,type="text",extra="")=>`<div class="field"><label for="f_${k}">${t(k==="students_count"?"students":k==="fees_level"?"fees":k)}</label><input id="f_${k}" type="${type}" value="${esc(i[k]??"")}" ${extra}></div>`;
+  return `<form id="instForm" style="display:flex;flex-direction:column;gap:12px">
+    <div class="grid2">${f("name","text","required")}${f("name_en")}</div>
+    <div class="grid3"><div class="field"><label for="f_type">${t("type")}</label>${sel("f_type",TYPES.map(x=>[x,t("ty_"+x)]),i.type)}</div>${f("category","text",'list="cats"')}<div class="field"><label for="f_fees_level">${t("fees")}</label>${sel("f_fees_level",[["",t("pick")],["low",t("fe_low")],["mid",t("fe_mid")],["high",t("fe_high")]],i.fees_level)}</div></div>
+    <datalist id="cats"><option value="لغات"><option value="دولي"><option value="قومي"><option value="أزهري"><option value="خاص عربي"><option value="international"><option value="language"></datalist>
+    <div class="grid3">${f("city")}${f("area")}${f("students_count","number","min=0")}</div>
+    <div class="grid3">${f("phone","tel")}${f("email","email")}${f("website")}</div>
+    ${f("address")}${f("current_system")}${f("source")}
+    <div class="field"><label for="f_notes">${t("notes")}</label><textarea id="f_notes">${esc(i.notes||"")}</textarea></div>
+    <div class="row" style="justify-content:space-between"><button class="btn primary" type="submit">${t("save")}</button>${i.id?`<button class="btn ghost danger" type="button" id="delInst">${t("del")}</button>`:""}</div></form>` }
+function oppForm(o){
+  return `<form id="oppForm" style="display:flex;flex-direction:column;gap:12px">
+    <div class="field"><label for="o_inst">${t("inst")}</label>${sel("o_inst",[["",t("pick")],...S.insts.map(i=>[i.id,i.name])],o.institution_id,"required")}</div>
+    <div class="field"><label for="o_name">${t("name")}</label><input id="o_name" required value="${esc(o.name||"SchoolOS — "+new Date().getFullYear()+"/"+(new Date().getFullYear()+1))}"></div>
+    <div class="field"><label for="o_stage">${t("stage")}</label>${sel("o_stage",STAGES.map(s=>[s,t("sg_"+s)]),o.stage)}</div>
+    <div class="grid3"><div class="field"><label for="o_students">${t("students")}</label><input id="o_students" type="number" min="0" value="${o.students||0}"></div>
+      <div class="field"><label for="o_pps">${t("pps")}</label><input id="o_pps" type="number" min="0" value="${o.price_per_student}"></div>
+      <div class="field"><label for="o_disc">${t("discount")}</label><input id="o_disc" type="number" min="0" max="100" step="0.5" value="${o.discount_pct||0}"></div></div>
+    <div class="grid3"><div class="field"><label for="o_comm">${t("commPct")}</label><input id="o_comm" type="number" min="0" max="100" step="0.5" value="${o.commission_pct}"></div>
+      <div class="field"><label for="o_prob">${t("prob")}</label><input id="o_prob" type="number" min="0" max="100" value="${o.id?o.probability:""}" placeholder="auto"></div>
+      <div class="field"><label for="o_close">${t("close_date")}</label><input id="o_close" type="date" value="${o.expected_close||""}"></div></div>
+    <div class="card pad grid2" style="background:var(--sunk);border:0"><div><div class="small muted">${t("dealValue")}</div><div class="num" id="o_val" style="font-size:1.2rem"></div></div><div><div class="small muted">${t("commission")}</div><div class="num" id="o_cv" style="font-size:1.2rem;color:var(--accent)"></div></div></div>
+    <div class="field"><label for="o_lost">${t("lost_reason")}</label><input id="o_lost" value="${esc(o.lost_reason||"")}"></div>
+    <div class="field"><label for="o_notes">${t("notes")}</label><textarea id="o_notes" rows="2">${esc(o.notes||"")}</textarea></div>
+    <div class="row" style="justify-content:space-between"><button class="btn primary" type="submit">${t("save")}</button>${o.id?`<button class="btn ghost danger" type="button" id="delOpp">${t("del")}</button>`:""}</div></form>` }
+function cadForm(c){
+  return `<form id="cadForm" style="display:flex;flex-direction:column;gap:12px"><div class="field"><label for="cd_name">${t("cadName")}</label><input id="cd_name" required value="${esc(c.name)}"></div>
+    <h3>${t("steps")}</h3><div id="cdSteps" style="display:flex;flex-direction:column;gap:8px">${(c.steps||[]).map((s,ix)=>stepRow(s,ix)).join("")}</div>
+    <div class="row"><button class="btn sm" type="button" id="addStep">${icon("plus")}${t("addStep")}</button></div>
+    <div class="row" style="justify-content:space-between"><button class="btn primary" type="submit">${t("save")}</button>${c.id?`<button class="btn ghost danger" type="button" id="delCad">${t("del")}</button>`:""}</div></form>` }
+function stepRow(s,ix){ return `<div class="row step" style="flex-wrap:nowrap"><input type="number" min="0" class="st-day" aria-label="${t("day")}" value="${s.day??0}" style="width:70px;flex:none">
+  <select class="st-type" aria-label="${t("type")}" style="width:auto;flex:none">${[...ACTS,"task"].map(a=>`<option value="${a}" ${a===s.type?"selected":""}>${t("a_"+a)}</option>`).join("")}</select>
+  <input class="st-title grow" aria-label="${t("subject")}" value="${esc(s.title||"")}"><input type="hidden" class="st-hint" value="${esc(s.hint||"")}"><button type="button" class="btn ghost sm danger st-del" aria-label="${t("del")}">${icon("x")}</button></div>` }
+
+/* ---------- bindings ---------- */
+function bindCommon(scope){
+  scope.querySelectorAll("[data-open]").forEach(el=>el.onclick=async e=>{e.preventDefault();e.stopPropagation();await openInst(el.dataset.open)});
+  scope.querySelectorAll("[data-done]").forEach(b=>b.onclick=async e=>{e.stopPropagation();const id=b.dataset.done;await q(sb.from("activities").update({status:"done",done_at:new Date().toISOString()}).eq("id",id));const a=S.acts.find(x=>x.id===id);if(a){a.status="done";a.done_at=new Date().toISOString()}toast(t("done"));render()});
+  scope.querySelectorAll("[data-opp]").forEach(b=>b.onclick=()=>openSheet("opp",b.dataset.opp));
+  scope.querySelectorAll("[data-nav]").forEach(b=>b.onclick=e=>{e.preventDefault();S.sheet=null;S.view=b.dataset.nav;location.hash=S.view;render()});
+}
+async function openInst(id){ S._contacts=await q(sb.from("contacts").select("*").eq("institution_id",id).order("created_at")); openSheet("inst",id) }
+function bindView(){
+  const m=$("#main"); bindCommon(m);
+  if(S.view==="today"){
+    m.querySelectorAll("[data-copy]").forEach(b=>b.onclick=async()=>{const a=S.acts.find(x=>x.id===b.dataset.copy);try{await navigator.clipboard.writeText((a.subject?a.subject+"\n\n":"")+a.body);toast(t("copied"))}catch(e){toast(a.body)}});
+    m.querySelectorAll("[data-sent]").forEach(b=>b.onclick=async()=>{const id=b.dataset.sent;await q(sb.from("activities").update({status:"sent",done_at:new Date().toISOString()}).eq("id",id));const a=S.acts.find(x=>x.id===id);a.status="sent";
+      if(a.institution_id){const i=instById(a.institution_id);if(i&&i.status==="new"){i.status="contacted";await sb.from("institutions").update({status:"contacted"}).eq("id",i.id)}}toast(t("markSent"));render()});
+    m.querySelectorAll("[data-del-act]").forEach(b=>b.onclick=async()=>{if(b.dataset.armed){await q(sb.from("activities").delete().eq("id",b.dataset.delAct));S.acts=S.acts.filter(x=>x.id!==b.dataset.delAct);render()}else{b.dataset.armed=1;b.textContent=t("confirmDel")}});
+  }
+  if(S.view==="leads"){
+    $("#newLead").onclick=()=>openSheet("instForm",null);
+    $("#fq").oninput=e=>{S.filter.q=e.target.value;const pos=e.target.selectionStart;render();const el=$("#fq");el.focus();el.setSelectionRange(pos,pos)};
+    $("#fs").onchange=e=>{S.filter.status=e.target.value;render()}; $("#fc").onchange=e=>{S.filter.city=e.target.value;render()};
+    m.querySelectorAll("[data-st]").forEach(b=>b.onclick=()=>{S.filter.status=b.dataset.st;render()});
+  }
+  if(S.view==="pipeline") $("#newOpp").onclick=()=>openSheet("opp",null,{inst:""});
+  if(S.view==="agent"){
+    $("#composer").onsubmit=e=>{e.preventDefault();const v=$("#cin").value;$("#cin").value="";sendAgent(v)};
+    $("#cin").onkeydown=e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&window.matchMedia("(min-width:761px)").matches){e.preventDefault();$("#composer").requestSubmit()}};
+    $("#cin").oninput=e=>{e.target.style.height="auto";e.target.style.height=Math.min(160,e.target.scrollHeight)+"px"};
+    m.querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>sendAgent(b.dataset.q));
+    $("#newChat").onclick=async()=>{const {data:{session}}=await sb.auth.getSession();await fetch(`${SUPABASE_URL}/functions/v1/agent`,{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`,apikey:SUPABASE_KEY},body:JSON.stringify({reset:true})});S.chat=[];render()};
+  }
+  if(S.view==="settings"){
+    $("#signout").onclick=async()=>{await sb.auth.signOut()};
+    $("#s_lang").onchange=e=>setLang(e.target.value);
+    $("#setForm").onsubmit=async e=>{e.preventDefault();
+      const key=$("#s_key").value.trim();
+      if(key){ const ex=S.hasKey; await q(ex? sb.from("api_keys").update({anthropic_key:key,updated_at:new Date().toISOString()}).eq("owner_id",S.user.id) : sb.from("api_keys").insert({anthropic_key:key})); S.hasKey=true }
+      const patch={agent_model:$("#s_model").value,agent_monthly_budget_usd:+$("#s_budget").value||0,default_price:+$("#s_price").value||0,commission_pct:+$("#s_comm").value||0,quarterly_target_egp:+$("#s_tgt").value||0,sender_name:$("#s_sn").value,sender_email:$("#s_se").value,signature:$("#s_sig").value,updated_at:new Date().toISOString()};
+      const d=await q(sb.from("settings").upsert({owner_id:S.user.id,...patch}).select().single()); S.settings=d; toast(t("saved")); render() };
+    $("#newCad").onclick=()=>openSheet("cad",null);
+    m.querySelectorAll("[data-cad]").forEach(b=>b.onclick=()=>openSheet("cad",b.dataset.cad));
+  }
+}
+function bindSheet(){
+  const sc=$("#scrim"); bindCommon(sc.querySelector(".sheet-body"));
+  $("#closeSheet").onclick=closeSheet; sc.onclick=e=>{if(e.target===sc)closeSheet()};
+  document.onkeydown=e=>{if(e.key==="Escape"&&S.sheet)closeSheet()};
+  const s=S.sheet;
+  if(s.kind==="inst"){ const i=instById(s.id);
+    $("#i_status").onchange=async e=>{await q(sb.from("institutions").update({status:e.target.value}).eq("id",i.id));i.status=e.target.value;render()};
+    sc.querySelector("[data-edit-inst]").onclick=()=>openSheet("instForm",i.id);
+    $("#tglContact").onclick=()=>{const f=$("#contactForm");f.hidden=!f.hidden;if(!f.hidden)$("#c_name").focus()};
+    $("#contactForm").onsubmit=async e=>{e.preventDefault();const c=await q(sb.from("contacts").insert(clean({institution_id:i.id,full_name:$("#c_name").value,role:$("#c_role").value,phone:$("#c_phone").value,whatsapp:$("#c_wa").value,email:$("#c_email").value,decision_role:$("#c_dr").value})).select().single());S._contacts.push(c);render()};
+    sc.querySelectorAll("[data-del-contact]").forEach(b=>b.onclick=async()=>{if(!b.dataset.armed){b.dataset.armed=1;b.textContent=t("confirmDel");return}await q(sb.from("contacts").delete().eq("id",b.dataset.delContact));S._contacts=S._contacts.filter(c=>c.id!==b.dataset.delContact);render()});
+    sc.querySelectorAll("[data-new-opp]").forEach(b=>b.onclick=()=>openSheet("opp",null,{inst:i.id,back:i.id}));
+    $("#a_mode").onchange=e=>{$("#a_dueWrap").hidden=e.target.value!=="planned"};
+    $("#actForm").onsubmit=async e=>{e.preventDefault();const planned=$("#a_mode").value==="planned";
+      const row=clean({institution_id:i.id,type:$("#a_type").value,subject:$("#a_subj").value,body:$("#a_body").value,status:planned?"planned":"done",due_at:planned?fromLocalInput($("#a_due").value):null,done_at:planned?null:new Date().toISOString()});
+      const a=await q(sb.from("activities").insert(row).select().single());S.acts.unshift(a);
+      if(!planned&&i.status==="new"){await sb.from("institutions").update({status:"contacted"}).eq("id",i.id);i.status="contacted"}
+      toast(t("saved"));render()};
+    const eb=$("#enrollBtn"); if(eb) eb.onclick=async()=>{const cid=$("#cadPick").value;if(!cid)return;await q(sb.rpc("enroll_in_cadence",{p_cadence:cid,p_institution:i.id,p_contact:S._contacts[0]?.id||null}));await loadAll();toast(t("enrolled"));render()};
+  }
+  if(s.kind==="instForm"){
+    $("#instForm").onsubmit=async e=>{e.preventDefault();const g=k=>$("#f_"+k).value.trim();
+      const row={name:g("name"),name_en:g("name_en")||null,type:g("type"),category:g("category")||null,fees_level:g("fees_level")||null,city:g("city")||null,area:g("area")||null,students_count:g("students_count")?+g("students_count"):null,phone:g("phone")||null,email:g("email")||null,website:g("website")||null,address:g("address")||null,current_system:g("current_system")||null,source:g("source")||null,notes:$("#f_notes").value||null};
+      if(!row.name) return toast(t("required"));
+      let d; if(s.id){d=await q(sb.from("institutions").update(row).eq("id",s.id).select().single());Object.assign(instById(s.id),d)}else{d=await q(sb.from("institutions").insert(row).select().single());S.insts.unshift(d)}
+      toast(t("saved")); await openInst(d.id)};
+    const del=$("#delInst"); if(del) del.onclick=async()=>{if(!del.dataset.armed){del.dataset.armed=1;del.textContent=t("confirmDel");return}await q(sb.from("institutions").delete().eq("id",s.id));await loadAll();closeSheet()};
+  }
+  if(s.kind==="opp"){
+    const calc=()=>{const st=+$("#o_students").value||0,p=+$("#o_pps").value||0,dc=+$("#o_disc").value||0,cm=+$("#o_comm").value||0;const v=st*p*(1-dc/100);$("#o_val").textContent=money(v);$("#o_cv").textContent=money(v*cm/100)};
+    ["o_students","o_pps","o_disc","o_comm"].forEach(k=>$("#"+k).oninput=calc); calc();
+    $("#o_inst").onchange=e=>{const i=instById(e.target.value);if(i?.students_count&&!+$("#o_students").value){$("#o_students").value=i.students_count;calc()}};
+    $("#oppForm").onsubmit=async e=>{e.preventDefault();
+      const row={institution_id:$("#o_inst").value,name:$("#o_name").value,stage:$("#o_stage").value,students:+$("#o_students").value||0,price_per_student:+$("#o_pps").value||0,discount_pct:+$("#o_disc").value||0,commission_pct:+$("#o_comm").value||0,expected_close:$("#o_close").value||null,lost_reason:$("#o_lost").value||null,notes:$("#o_notes").value||null};
+      if(!row.institution_id) return toast(t("inst"));
+      const old=s.id&&S.opps.find(x=>x.id===s.id); const pv=$("#o_prob").value;
+      if(pv!=="" && (!old || +pv!==old.probability || old.stage===row.stage)) row.probability=+pv;
+      if(s.id){ if(old.stage!==row.stage && (pv===""||+pv===old.probability)) delete row.probability; await q(sb.from("opportunities").update(row).eq("id",s.id)) }
+      else { await q(sb.from("opportunities").insert(row)); const i=instById(row.institution_id); if(i&&["new","contacted"].includes(i.status)){await sb.from("institutions").update({status:"qualified"}).eq("id",i.id)} }
+      await loadAll(); toast(t("saved")); if(s.back) await openInst(s.back); else closeSheet() };
+    const del=$("#delOpp"); if(del) del.onclick=async()=>{if(!del.dataset.armed){del.dataset.armed=1;del.textContent=t("confirmDel");return}await q(sb.from("opportunities").delete().eq("id",s.id));await loadAll();closeSheet()};
+  }
+  if(s.kind==="cad"){
+    const wire=()=>sc.querySelectorAll(".st-del").forEach(b=>b.onclick=()=>b.closest(".step").remove()); wire();
+    $("#addStep").onclick=()=>{const rows=sc.querySelectorAll(".step");const last=rows.length?+rows[rows.length-1].querySelector(".st-day").value:0;$("#cdSteps").insertAdjacentHTML("beforeend",stepRow({day:last+2,type:"call",title:""}));wire()};
+    $("#cadForm").onsubmit=async e=>{e.preventDefault();const steps=[...sc.querySelectorAll(".step")].map(r=>({day:+r.querySelector(".st-day").value||0,type:r.querySelector(".st-type").value,title:r.querySelector(".st-title").value,hint:r.querySelector(".st-hint").value})).sort((a,b)=>a.day-b.day);
+      const row={name:$("#cd_name").value,steps}; if(s.id) await q(sb.from("cadences").update(row).eq("id",s.id)); else await q(sb.from("cadences").insert(row));
+      S.cadences=await q(sb.from("cadences").select("*").order("created_at"));toast(t("saved"));closeSheet()};
+    const del=$("#delCad"); if(del) del.onclick=async()=>{if(!del.dataset.armed){del.dataset.armed=1;del.textContent=t("confirmDel");return}await q(sb.from("cadences").delete().eq("id",s.id));S.cadences=S.cadences.filter(c=>c.id!==s.id);closeSheet()};
+  }
+}
+const clean = o => Object.fromEntries(Object.entries(o).filter(([,v])=>v!==undefined&&v!==null&&v!==""));
+
+/* ---------- boot ---------- */
+window.addEventListener("hashchange",()=>{const h=location.hash.slice(1);if(h&&h!==S.view&&["today","leads","pipeline","forecast","agent","settings"].includes(h)){S.view=h;S.sheet=null;render()}});
+sb.auth.onAuthStateChange(async(ev,session)=>{
+  const u=session?.user||null;
+  if(u && (!S.user || S.user.id!==u.id)){ S.user=u; await loadAll(); await loadChat(); render() }
+  else if(!u){ S.user=null; render() }
+});
+render();
+</script>
+</body>
+</html>
