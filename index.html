@@ -350,7 +350,7 @@ ar:{today:"النهارده",leads:"العملاء",pipeline:"الصفقات",fo
  authH:"كل مدارسك وصفقاتك في مكان واحد",authP:"أداة مبيعات شخصية فيها مساعد ذكي بيجيبلك مدارس ويكتب رسايلك ويحسب عمولتك.",
  authL1:"عملاء وصفقات ومراحل بيع واضحة",authL2:"توقعات العمولة لكل ربع سنة",authL3:"مساعد ذكي بالعربي والإنجليزي",
  signin:"تسجيل الدخول",signup:"إنشاء الحساب",email:"الإيميل",password:"كلمة السر",signout:"تسجيل خروج",firstTime:"أول مرة؟ أنشئ حسابك",haveAcc:"عندك حساب؟ سجّل دخول",onlyOne:"الأداة دي شخصية: مسموح بحساب واحد بس.",
- checkEmail:"اتبعتلك إيميل تأكيد. افتحه ودوس اللينك، وبعدين سجّل دخول هنا.",
+ checkEmail:"اتبعتلك إيميل تأكيد. افتحه ودوس اللينك، وبعدين سجّل دخول هنا.",forgot:"نسيت كلمة السر؟",resetSent:"لو الإيميل ده مسجل، هيوصلك لينك لتغيير كلمة السر خلال دقيقة. افتحه من نفس الموبايل.",needEmail:"اكتب إيميلك الأول في خانة الإيميل.",newPass:"كلمة سر جديدة",setPass:"حفظ كلمة السر",passSaved:"كلمة السر اتغيرت ✓",badCreds:"الإيميل أو كلمة السر غلط. اتأكد إن الإيميل مكتوب صح، أو دوس «نسيت كلمة السر؟».",
  search:"دوّر على مدرسة أو شخص…",quickAdd:"إضافة سريعة",
  hello:"صباح الخير يا أحمد",helloE:"مساء الخير يا أحمد",
  qComm:"عمولتك المتوقعة",openPipe:"الصفقات المفتوحة",wonQ:"اتقفل الربع ده",tasksK:"مهام النهارده",ofTarget:"من الهدف",noTarget:"حط هدف من الإعدادات",
@@ -394,7 +394,7 @@ en:{today:"Today",leads:"Leads",pipeline:"Pipeline",forecast:"Forecast",agent:"W
  authH:"All your schools and deals in one place",authP:"A personal sales tool with an AI assistant that finds schools, drafts your messages and tracks your commission.",
  authL1:"Leads, deals and a clear sales path",authL2:"Quarterly commission forecast",authL3:"AI assistant in Arabic and English",
  signin:"Sign in",signup:"Create account",email:"Email",password:"Password",signout:"Sign out",firstTime:"First time? Create your account",haveAcc:"Have an account? Sign in",onlyOne:"This is a personal tool: only one account is allowed.",
- checkEmail:"We sent a confirmation email. Open it, tap the link, then sign in here.",
+ checkEmail:"We sent a confirmation email. Open it, tap the link, then sign in here.",forgot:"Forgot password?",resetSent:"If this email is registered, a reset link will arrive within a minute. Open it on this phone.",needEmail:"Type your email in the email field first.",newPass:"New password",setPass:"Save password",passSaved:"Password changed ✓",badCreds:"Wrong email or password. Check the email spelling, or tap “Forgot password?”.",
  search:"Search schools or people…",quickAdd:"Quick add",
  hello:"Good morning, Ahmed",helloE:"Good evening, Ahmed",
  qComm:"Expected commission",openPipe:"Open pipeline",wonQ:"Won this quarter",tasksK:"Tasks today",ofTarget:"of target",noTarget:"Set a target in Settings",
@@ -522,6 +522,7 @@ function taskBuckets(){const td=todayStr();const pl=S.acts.filter(a=>a.status===
 /* ================= shell ================= */
 function render(){
   const root=$("#root");
+  if(S.recovery){root.innerHTML=recoveryView();bindRecovery();return}
   if(!S.user){root.innerHTML=authView();bindAuth();return}
   const tb=taskBuckets(),due=tb.overdue.length+tb.today.length;
   const nav=(v,cnt)=>`<button class="nav ${S.view===v?"on":""}" data-nav="${v}">${icon(v)}<span>${t(v)}</span>${cnt?`<span class="count">${cnt}</span>`:""}</button>`;
@@ -575,19 +576,30 @@ function authView(){const up=S.authMode==="up";return `<div class="auth">
    <div class="stack" style="gap:14px"><h2>${t("authH")}</h2><p>${t("authP")}</p></div>
    <ul><li><span>✓</span>${t("authL1")}</li><li><span>✓</span>${t("authL2")}</li><li><span>✓</span>${t("authL3")}</li></ul></section>
  <section class="auth-form"><form id="authForm"><h1>${up?t("signup"):t("signin")}</h1>${up?`<p class="small muted" style="margin:0">${t("onlyOne")}</p>`:""}
-   <div class="field"><label for="ae">${t("email")}</label><input id="ae" type="email" required autocomplete="email" inputmode="email"></div>
+   <div class="field"><label for="ae">${t("email")}</label><input id="ae" type="email" required autocomplete="email" inputmode="email" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
    <div class="field"><label for="ap">${t("password")}</label><input id="ap" type="password" required minlength="8" autocomplete="${up?"new-password":"current-password"}"></div>
    <button class="btn primary" type="submit" style="height:42px">${up?t("signup"):t("signin")}</button>
+   ${up?"":`<button class="btn ghost sm" type="button" id="forgotBtn">${t("forgot")}</button>`}
    <button class="btn ghost" type="button" id="authSwitch">${up?t("haveAcc"):t("firstTime")}</button>
    <p class="small" id="authMsg" style="margin:0;color:var(--brand)"></p>
    <div class="row" style="justify-content:center"><button class="btn ghost sm" type="button" id="authLang">${icon("globe")}${LANG==="ar"?"English":"العربية"}</button></div></form></section></div>`}
+function recoveryView(){return `<div class="auth"><section class="auth-art"><div class="brand" style="padding:0"><div class="logo">و</div><div><b>Wakeel CRM</b></div></div></section>
+ <section class="auth-form"><form id="recForm"><h1>${t("newPass")}</h1><div class="field"><label for="np">${t("newPass")}</label><input id="np" type="password" required minlength="8" autocomplete="new-password"></div>
+ <button class="btn primary" type="submit" style="height:42px">${t("setPass")}</button><p class="small" id="recMsg" style="margin:0"></p></form></section></div>`}
+function bindRecovery(){$("#recForm").onsubmit=async e=>{e.preventDefault();const r=await sb.auth.updateUser({password:$("#np").value});
+  if(r.error){$("#recMsg").style.color="var(--bad)";$("#recMsg").textContent=r.error.message;return}
+  toast(t("passSaved"));S.recovery=false;render()}}
 function bindAuth(){
+  const fb=$("#forgotBtn");if(fb)fb.onclick=async()=>{const email=$("#ae").value.trim(),m=$("#authMsg");
+    if(!email){m.style.color="var(--bad)";m.textContent=t("needEmail");$("#ae").focus();return}
+    const r=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    m.style.color=r.error?"var(--bad)":"var(--brand)";m.textContent=r.error?r.error.message:t("resetSent")};
   $("#authSwitch").onclick=()=>{S.authMode=S.authMode==="up"?"in":"up";render()};
   $("#authLang").onclick=()=>setLang(LANG==="ar"?"en":"ar");
   $("#authForm").onsubmit=async e=>{e.preventDefault();const email=$("#ae").value.trim(),password=$("#ap").value,btn=e.submitter;if(btn)btn.disabled=true;
     const r=S.authMode==="up"?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}}):await sb.auth.signInWithPassword({email,password});
     if(btn)btn.disabled=false;
-    if(r.error){$("#authMsg").style.color="var(--bad)";$("#authMsg").textContent=/already exists|Database error/i.test(r.error.message)?t("onlyOne"):r.error.message;return}
+    if(r.error){$("#authMsg").style.color="var(--bad)";$("#authMsg").textContent=/already exists|Database error/i.test(r.error.message)?t("onlyOne"):/invalid login credentials/i.test(r.error.message)?t("badCreds"):r.error.message;return}
     if(S.authMode==="up"&&!r.data.session){$("#authMsg").style.color="var(--brand)";$("#authMsg").textContent=t("checkEmail");S.authMode="in"}};
 }
 
@@ -925,6 +937,7 @@ async function boot(u){S.user=u;S.loaded=false;render();
   try{await loadChat()}catch(e){}
   S.loaded=true;render()}
 sb.auth.onAuthStateChange((ev,session)=>{const u=session?.user||null;
+  if(ev==="PASSWORD_RECOVERY"){S.recovery=true;S.user=u;setTimeout(render,0);return}
   if(u&&(!S.user||S.user.id!==u.id))setTimeout(()=>boot(u),0);
   else if(u)S.user=u;
   else{S.user=null;S.loaded=false;setTimeout(render,0)}});
