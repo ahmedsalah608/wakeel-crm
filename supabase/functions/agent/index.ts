@@ -46,7 +46,7 @@ RULES:
 - You HAVE a web_search tool. Never tell Ahmed you cannot search the web.
 - ACT, don't ask: when a request has a sensible default, do it right away and say which default you used. Ask at most one short question, only when nothing reasonable can be assumed.
 - Lead generation: run several web searches (vary area + type, e.g. "مدارس لغات سموحة", "international schools Alexandria", "حضانات ستانلي", Google Maps/Facebook/school directories). Alexandria areas to cover: Smouha, Stanley, Rushdy, Gleem, Sporting, Louran, Miami, Sidi Bishr, Mandara, Agami, Sidi Gaber, Kafr Abdo, Moharram Bek, Borg El Arab.
-  Collect real institutions with whatever you found (name, type, category, area, city, phone, website, students if stated). Only save what you actually found, never invent phones or numbers; put the source URL in "source". Import them with import_institutions, including score and a short score_notes for each in the same call (one call for the whole batch).
+  Collect real institutions with whatever you found (name, type, category, area, city, phone, website, students if stated). Only save what you actually found, never invent phones or numbers; put the source URL in "source". Import them with import_institutions in batches of at most 10 items per call, including score and a short score_notes (max 12 words) for each. Do not write long text before tool calls; save first, summarise at the end.
   If you found fewer than asked, say how many and offer to continue with other areas.
 - Outreach: you can NOT send emails or WhatsApp yourself. Save drafts with save_message_draft; Ahmed reviews and sends with one tap. Keep cold messages short (≤120 words), one clear ask (15-minute call or a demo), personalised to the school.
 - Appointments: when a meeting is agreed, log it with create_task type "meeting" and the date/time in Cairo time.
@@ -256,11 +256,13 @@ Deno.serve(async (req) => {
     const today = new Date().toLocaleString("en-GB", { timeZone: "Africa/Cairo", dateStyle: "full", timeStyle: "short" });
     let inTok = 0, outTok = 0, searches = 0, finalText = "";
     const actions: string[] = [];
-    let useSearch = true; let searchError = "";
+    let useSearch = true; let searchError = ""; let lastText = ""; let ended = false;
 
+    const t0 = Date.now();
     for (let i = 0; i < MAX_LOOPS; i++) {
+      if (Date.now() - t0 > 110000) break; // stay under the hosting time limit; Ahmed can say "continue"
       const body: any = {
-        model, max_tokens: 8000, system: SYSTEM(today, s) + (useSearch ? "" : `\nNOTE: the web_search tool failed this turn (${searchError}). Tell Ahmed in one line that web search failed and quote this reason.`), messages,
+        model, max_tokens: 16000, system: SYSTEM(today, s) + (useSearch ? "" : `\nNOTE: the web_search tool failed this turn (${searchError}). Tell Ahmed in one line that web search failed and quote this reason.`), messages,
         tools: [...tools, ...(useSearch ? [{ type: "web_search_20250305", name: "web_search", max_uses: 8, allowed_callers: ["direct"] }] : [])],
       };
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -279,10 +281,18 @@ Deno.serve(async (req) => {
       messages.push({ role: "assistant", content: data.content });
 
       const texts = data.content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("");
-      if (texts) finalText = texts;
+      if (texts) lastText = texts;
 
       if (data.stop_reason === "pause_turn") continue;
-      if (data.stop_reason !== "tool_use") break;
+      if (data.stop_reason === "max_tokens") {
+        // output was cut off (usually a huge tool call): drop unfinished tool calls and ask for smaller batches
+        const doneIds = new Set(data.content.filter((b: any) => b.type === "web_search_tool_result").map((b: any) => b.tool_use_id));
+        const kept = data.content.filter((b: any) => b.type === "text" || b.type === "web_search_tool_result" || (b.type === "server_tool_use" && doneIds.has(b.id)));
+        messages[messages.length - 1] = { role: "assistant", content: kept.length ? kept : [{ type: "text", text: "..." }] };
+        messages.push({ role: "user", content: "Your last output was cut off. Continue now: call import_institutions with at most 10 items per call, keep score_notes very short." });
+        continue;
+      }
+      if (data.stop_reason !== "tool_use") { finalText = texts; ended = true; break; }
 
       const results = [];
       for (const b of data.content) {
@@ -298,6 +308,10 @@ Deno.serve(async (req) => {
       messages.push({ role: "user", content: results });
     }
 
+    if (!ended || !finalText || finalText.trim().length < 3) {
+      const n = actions.filter((a) => a === "import_institutions").length;
+      finalText = n ? `✓ اتضافت مؤسسات في ${n} دفعات. افتح صفحة العملاء.` : "ملحقتش أخلص الطلب في مرة واحدة. ابعتلي «كمل» وأنا أكمل من مكان ما وقفت.";
+    }
     const cost = inTok / 1e6 * price.in + outTok / 1e6 * price.out + searches * WEB_SEARCH_USD;
     await admin.from("agent_usage").insert({ owner_id: uid, model, input_tokens: inTok, output_tokens: outTok, web_searches: searches, cost_usd: cost });
     await sb.from("agent_messages").insert([{ role: "user", content: message }, { role: "assistant", content: finalText || "✓" }]);
