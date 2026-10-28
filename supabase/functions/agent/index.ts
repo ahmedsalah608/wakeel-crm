@@ -18,7 +18,7 @@ const MAX_LOOPS = 12;
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 
-const SYSTEM = (today: string, s: any) => `You are "Wakeel" (وكيل), the personal AI sales assistant inside a one-person CRM.
+const SYSTEM = (today: string, s: any, lessons: string[] = []) => `You are "Wakeel" (وكيل), the personal AI sales assistant inside a one-person CRM.
 The user is Ahmed Salah, a freelance sales acquisition rep selling SchoolOS in Egypt (Alexandria first, then Cairo, later the Gulf).
 Today is ${today} (Africa/Cairo).
 
@@ -29,9 +29,11 @@ PRODUCT — SchoolOS (منصة تشغيل المؤسسات التعليمية): 
 - Owner compares campuses (students, 30-day attendance, collection rate, families with balances).
 - Principal: who needs intervention, today's money, pending approvals, honest daily absence.
 - Teacher: today's periods, missed attendance, one-tap "all present", homework and grades in place.
-- Parent (phone): weekly absence, new grades (only after publishing), homework, balance & next installment — fewer calls to school.
+- Parent (phone): weekly absence, new grades (only after publishing), homework, balance & next installment.
 - Student account: own day, homework submission.
 - Accountant / Purchasing / HR desks; finance ledger with gapless invoice numbers, approved discounts, tax; contracts, purchasing, payroll with separation of duties; requests & approvals routed by the school; asset register with QR; operation-level permissions; readable audit log; Arabic / English / French.
+- One-sentence summary to use in openings: "SchoolOS منصة واحدة بتشغّل المدرسة كلها: الإدارة والمدرسين والحسابات والموارد البشرية والمشتريات وأولياء الأمور، وكل واحد بيشوف شغله وأرقامه في مكان واحد."
+- Value by buyer: Owner = control and visibility across campuses, collection rate, decisions with a trail. Principal = daily picture of attendance, money and approvals without chasing departments. Finance = clean invoices, discounts approved, payroll and purchasing with separation of duties. Parents = transparency, which raises satisfaction and on-time payment. Never shrink the product to one feature.
 - Problems it solves: scattered data, departments that don't see each other, parents calling 3 people for one question, WhatsApp groups with no privacy or record, decisions with no trail.
 - Offer: "we build your structure, subjects and team accounts in one session, then you run a real week on your own data".
 PRICING: standard 300 EGP per student per year (Ahmed decides deal terms, may discount). Ahmed earns ${s?.commission_pct ?? 20}% commission.
@@ -51,6 +53,10 @@ RULES:
 - Outreach: you can NOT send emails or WhatsApp yourself. Save drafts with save_message_draft; Ahmed reviews and sends with one tap. Keep cold messages short (≤120 words), one clear ask (15-minute call or a demo), personalised to the school.
 - Appointments: when a meeting is agreed, log it with create_task type "meeting" and the date/time in Cairo time.
 - Keep replies brief: confirm what you did in a few lines, then suggest the next best action.
+- When Ahmed corrects your style, approach or facts ("this is wrong", "don't do X", "I prefer Y"), call save_lesson with a short, general rule so you never repeat the mistake, then redo the work applying it.
+- Never quote statistics, studies or named sources unless they came from a web_search you ran in THIS turn. If unsure, say it is your suggestion.
+- Sales coaching quality bar: think like a seasoned Egyptian B2B sales rep. Consider the other person's motives, time and ego. Natural Egyptian dialect, flexible talk tracks, not rigid scripts. Before answering, check your draft against every lesson below.
+${lessons.length ? "\nLESSONS FROM AHMED (always follow, they override defaults):\n" + lessons.map((l, i) => `${i + 1}. ${l}`).join("\n") : ""}
 ${s?.signature ? "Ahmed's signature:\n" + s.signature : ""}`;
 
 const tools = [
@@ -108,6 +114,8 @@ const tools = [
   { name: "enroll_in_cadence", description: "Start a cadence for an institution (creates its planned steps).",
     input_schema: { type: "object", properties: { cadence_id: { type: "string" }, institution_id: { type: "string" }, contact_id: { type: "string" } },
       required: ["cadence_id", "institution_id"] } },
+  { name: "save_lesson", description: "Remember a rule Ahmed taught you (his preferences or corrections). Short, general, actionable. Saved forever and shown to you in every future conversation.",
+    input_schema: { type: "object", properties: { lesson: { type: "string" } }, required: ["lesson"] } },
   { name: "save_message_draft", description: "Save an email or WhatsApp draft for Ahmed to review and send.",
     input_schema: { type: "object", properties: {
       institution_id: { type: "string" }, contact_id: { type: "string" },
@@ -207,6 +215,8 @@ async function runTool(sb: any, name: string, a: any): Promise<unknown> {
       return r(await sb.from("cadences").select("id,name,steps"));
     case "enroll_in_cadence":
       return r(await sb.rpc("enroll_in_cadence", { p_cadence: a.cadence_id, p_institution: a.institution_id, p_contact: a.contact_id ?? null }));
+    case "save_lesson":
+      return r(await sb.from("agent_lessons").insert({ lesson: String(a.lesson).slice(0, 500) }).select("id").single());
     case "save_message_draft":
       return r(await sb.from("activities").insert(clean({
         institution_id: a.institution_id, contact_id: a.contact_id, type: a.channel, status: "draft", subject: a.subject, body: a.body,
@@ -238,7 +248,10 @@ Deno.serve(async (req) => {
     if (!message || typeof message !== "string") return json({ error: "empty" }, 400);
 
     const { data: s } = await sb.from("settings").select("*").eq("owner_id", uid).maybeSingle();
-    const model = s?.agent_model || "claude-haiku-5-5";
+    const pref = s?.agent_model || "claude-haiku-5-5";
+    // "auto": Sonnet for thinking/writing, Haiku for bulk lead lists (many searches, cheap)
+    const bulk = /(هات|هاتلي|جيب|جيبلي|ضيف|دور|find|search|add)\s.{0,40}(\d+|مدارس|مدرسة|حضانات|حضانة|schools|nurseries|leads)/i.test(message) || /^\s*(كمل|continue)\s*$/i.test(message);
+    const model = pref === "auto" ? (bulk ? "claude-haiku-5-5" : "claude-sonnet-5-5") : pref;
     const price = PRICES[model] ?? PRICES["claude-haiku-5-5"];
 
     // monthly budget guard
@@ -247,6 +260,9 @@ Deno.serve(async (req) => {
     const spent = (usage ?? []).reduce((t: number, x: any) => t + Number(x.cost_usd), 0);
     const budget = Number(s?.agent_monthly_budget_usd ?? 10);
     if (spent >= budget) return json({ error: "budget", message: `Monthly agent budget reached ($${spent.toFixed(2)} / $${budget}).` }, 402);
+
+    const { data: lrows } = await sb.from("agent_lessons").select("lesson").order("created_at").limit(60);
+    const lessons = (lrows ?? []).map((x: any) => x.lesson);
 
     const { data: hist } = await sb.from("agent_messages").select("role,content").order("created_at", { ascending: false }).limit(16);
     const history = (hist ?? []).reverse().map((m: any) => ({ role: m.role, content: m.content }));
@@ -262,7 +278,7 @@ Deno.serve(async (req) => {
     for (let i = 0; i < MAX_LOOPS; i++) {
       if (Date.now() - t0 > 110000) break; // stay under the hosting time limit; Ahmed can say "continue"
       const body: any = {
-        model, max_tokens: 16000, system: SYSTEM(today, s) + (useSearch ? "" : `\nNOTE: the web_search tool failed this turn (${searchError}). Tell Ahmed in one line that web search failed and quote this reason.`), messages,
+        model, max_tokens: 16000, system: SYSTEM(today, s, lessons) + (useSearch ? "" : `\nNOTE: the web_search tool failed this turn (${searchError}). Tell Ahmed in one line that web search failed and quote this reason.`), messages,
         tools: [...tools, ...(useSearch ? [{ type: "web_search_20250305", name: "web_search", max_uses: 8, allowed_callers: ["direct"] }] : [])],
       };
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -316,7 +332,7 @@ Deno.serve(async (req) => {
     await admin.from("agent_usage").insert({ owner_id: uid, model, input_tokens: inTok, output_tokens: outTok, web_searches: searches, cost_usd: cost });
     await sb.from("agent_messages").insert([{ role: "user", content: message }, { role: "assistant", content: finalText || "✓" }]);
 
-    return json({ reply: finalText, actions, search_error: searchError || undefined, usage: { input_tokens: inTok, output_tokens: outTok, web_searches: searches, cost_usd: cost, month_spent_usd: spent + cost, budget_usd: budget } });
+    return json({ reply: finalText, model, actions, search_error: searchError || undefined, usage: { input_tokens: inTok, output_tokens: outTok, web_searches: searches, cost_usd: cost, month_spent_usd: spent + cost, budget_usd: budget } });
   } catch (e) {
     return json({ error: "server", message: (e as Error).message }, 500);
   }

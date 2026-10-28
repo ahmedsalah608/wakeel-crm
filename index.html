@@ -378,7 +378,7 @@ ar:{today:"النهارده",leads:"العملاء",pipeline:"الصفقات",fo
  noKey:"لازم تضيف مفتاح المساعد من الإعدادات الأول.",budgetHit:"وصلت للحد الشهري للمساعد. تقدر تزوده من الإعدادات.",
  sAccount:"الحساب",sAgent:"المساعد الذكي",sSales:"البيع والعمولة",sMsg:"الرسايل",lang:"اللغة",loginEmail:"إيميل الدخول",changeEmail:"تغيير إيميل الدخول",emailChangeSent:"اتبعت إيميل تأكيد على الإيميل الجديد. التغيير بيتم بعد ما تأكده.",
  apiKey:"مفتاح Anthropic API",apiKeySaved:"المفتاح متسجل، ومش بيظهر تاني لحمايته",apiKeyNone:"مفيش مفتاح لسه",
- model:"الموديل",m_haiku:"Haiku 5.5 · الأرخص (موصى به)",m_sonnet:"Sonnet 5.5 · أذكى وأغلى 20 مرة",
+ model:"الموديل",m_auto:"تلقائي · Sonnet للكتابة والتفكير، وHaiku لجلب المدارس (موصى به)",lessons:"اللي وكيل اتعلمه منك",lessonsHint:"وكيل بيحفظ تصحيحاتك هنا وبيطبقها في كل محادثة. امسح أي حاجة مش صح.",m_haiku:"Haiku 5.5 · الأرخص والأضعف",m_sonnet:"Sonnet 5.5 · أذكى وأغلى 20 مرة",
  budget:"حد الصرف الشهري ($)",defPrice:"السعر الافتراضي للطالب (ج.م)",qTarget:"هدف العمولة كل ربع (ج.م)",
  senderName:"اسمك في الرسايل",senderEmail:"إيميل الشغل",signature:"التوقيع",
  cadences:"تسلسلات المتابعة",newCad:"تسلسل جديد",cadName:"اسم التسلسل",day:"يوم",addStep:"إضافة خطوة",steps:"الخطوات",
@@ -422,7 +422,7 @@ en:{today:"Today",leads:"Leads",pipeline:"Pipeline",forecast:"Forecast",agent:"W
  noKey:"Add your assistant key in Settings first.",budgetHit:"Monthly assistant budget reached. You can raise it in Settings.",
  sAccount:"Account",sAgent:"AI assistant",sSales:"Sales & commission",sMsg:"Messages",lang:"Language",loginEmail:"Sign-in email",changeEmail:"Change sign-in email",emailChangeSent:"A confirmation email was sent to the new address. The change applies once you confirm it.",
  apiKey:"Anthropic API key",apiKeySaved:"Key saved, hidden for safety",apiKeyNone:"No key yet",
- model:"Model",m_haiku:"Haiku 5.5 · cheapest (recommended)",m_sonnet:"Sonnet 5.5 · smarter, ~20× the cost",
+ model:"Model",m_auto:"Auto · Sonnet for writing and thinking, Haiku for bulk lead lists (recommended)",lessons:"What Wakeel learned from you",lessonsHint:"Wakeel saves your corrections here and applies them in every chat. Delete anything that is wrong.",m_haiku:"Haiku 5.5 · cheapest, weakest",m_sonnet:"Sonnet 5.5 · smarter, ~20× the cost",
  budget:"Monthly spend limit ($)",defPrice:"Default price per student (EGP)",qTarget:"Quarterly commission target (EGP)",
  senderName:"Your name in messages",senderEmail:"Work email",signature:"Signature",
  cadences:"Cadences",newCad:"New cadence",cadName:"Cadence name",day:"Day",addStep:"Add step",steps:"Steps",
@@ -499,16 +499,17 @@ const S={user:null,view:"today",settings:null,insts:[],opps:[],acts:[],cadences:
 async function q(p){const {data,error}=await p;if(error){toast(error.message);throw error}return data}
 async function loadAll(){
   const ms=new Date();ms.setDate(1);ms.setHours(0,0,0,0);
-  const [st,ins,op,ac,cd,hk,us]=await Promise.all([
+  const [st,ins,op,ac,cd,ls,hk,us]=await Promise.all([
     sb.from("settings").select("*").maybeSingle(),
     sb.from("institutions").select("*").order("updated_at",{ascending:false}).limit(3000),
     sb.from("opportunities").select("*").order("updated_at",{ascending:false}),
     sb.from("activities").select("*").order("created_at",{ascending:false}).limit(4000),
     sb.from("cadences").select("*").order("created_at"),
+    sb.from("agent_lessons").select("id,lesson").order("created_at"),
     sb.rpc("has_api_key"),
     sb.from("agent_usage").select("cost_usd").gte("created_at",ms.toISOString())]);
   S.settings=st.data||{default_price:300,commission_pct:20,agent_monthly_budget_usd:10,agent_model:"claude-haiku-5-5"};
-  S.insts=ins.data||[];S.opps=op.data||[];S.acts=ac.data||[];S.cadences=cd.data||[];S.hasKey=!!hk.data;
+  S.insts=ins.data||[];S.opps=op.data||[];S.acts=ac.data||[];S.cadences=cd.data||[];S.lessons=ls.data||[];S.hasKey=!!hk.data;
   S.usage=(us.data||[]).reduce((a,x)=>a+Number(x.cost_usd),0);S.loaded=true;
 }
 const instById=id=>S.insts.find(i=>i.id===id);
@@ -720,7 +721,7 @@ async function sendAgent(text){
   if(!text.trim()||S.busy)return;S.chat.push({role:"user",content:text});S.busy=true;render();
   try{const [r,j]=await callAgent({message:text});
     if(!r.ok)S.chat.push({role:"assistant",content:j.error==="missing_api_key"?t("noKey"):j.error==="budget"?t("budgetHit"):(j.message||"Error")});
-    else{S.chat.push({role:"assistant",content:j.reply||"✓",meta:`${t("cost")}: $${j.usage.cost_usd.toFixed(4)}${j.usage.web_searches?` · ${j.usage.web_searches} 🔎`:""}`});S.usage=j.usage.month_spent_usd;if(j.actions?.length)await loadAll()}
+    else{S.chat.push({role:"assistant",content:j.reply||"✓",meta:`${j.model?j.model.replace("claude-","").replace(/-(\d)-(\d)$/," $1.$2")+" · ":""}${t("cost")}: $${j.usage.cost_usd.toFixed(4)}${j.usage.web_searches?` · ${j.usage.web_searches} 🔎`:""}`});S.usage=j.usage.month_spent_usd;if(j.actions?.length)await loadAll()}
   }catch(e){S.chat.push({role:"assistant",content:String(e.message||e)})}
   S.busy=false;render();setTimeout(()=>$("#cin")?.focus(),30)}
 
@@ -732,7 +733,7 @@ function settingsView(){const s=S.settings;
    ${card(t("sAccount"),"user",`<div class="g2"><div class="field"><label for="s_lang">${t("lang")}</label>${sel("s_lang",[["ar","العربية"],["en","English"]],LANG)}</div>
       <div class="field"><label for="s_login">${t("loginEmail")}</label><div class="row" style="flex-wrap:nowrap"><input id="s_login" type="email" value="${esc(S.user.email||"")}"><button class="btn" type="button" id="chEmail">${t("save")}</button></div><span class="hint">${t("changeEmail")}</span></div></div>`)}
    ${card(t("sAgent"),"agent",`<div class="field"><label for="s_key">${t("apiKey")}</label><input id="s_key" type="password" autocomplete="off" placeholder="sk-ant-…"><span class="hint" style="color:${S.hasKey?"var(--good)":"var(--muted)"}">${S.hasKey?"✓ "+t("apiKeySaved"):t("apiKeyNone")}</span></div>
-      <div class="g2"><div class="field"><label for="s_model">${t("model")}</label>${sel("s_model",[["claude-haiku-5-5",t("m_haiku")],["claude-sonnet-5-5",t("m_sonnet")]],s.agent_model)}</div>
+      <div class="g2"><div class="field"><label for="s_model">${t("model")}</label>${sel("s_model",[["auto",t("m_auto")],["claude-haiku-5-5",t("m_haiku")],["claude-sonnet-5-5",t("m_sonnet")]],s.agent_model)}</div>
       <div class="field"><label for="s_budget">${t("budget")}</label><input id="s_budget" type="number" min="0" step="0.5" value="${s.agent_monthly_budget_usd}"><span class="hint">${t("spentM")}: $${S.usage.toFixed(3)}</span></div></div>`)}
    ${card(t("sSales"),"coin",`<div class="g3"><div class="field"><label for="s_price">${t("defPrice")}</label><input id="s_price" type="number" min="0" value="${s.default_price}"></div>
       <div class="field"><label for="s_comm">${t("commPct")}</label><input id="s_comm" type="number" min="0" max="100" step="0.5" value="${s.commission_pct}"></div>
@@ -742,7 +743,10 @@ function settingsView(){const s=S.settings;
       <div class="field"><label for="s_sig">${t("signature")}</label><textarea id="s_sig" rows="3">${esc(s.signature||"")}</textarea></div>`)}
    <div class="row" style="justify-content:flex-end"><button class="btn primary" type="submit" style="height:40px;padding:0 22px">${t("save")}</button></div></form>
    <section class="card"><div class="sec-h"><h2><span class="ico" style="width:28px;height:28px;background:var(--brand-soft);color:var(--brand)">${icon("task")}</span>${t("cadences")}</h2><button class="btn sm" id="newCad">${icon("plus")}${t("newCad")}</button></div>
-    <div class="list">${S.cadences.map(c=>`<div class="it click" data-cad="${c.id}"><div class="grow"><div class="t">${esc(c.name)}</div><div class="row" style="margin-top:6px;gap:6px">${(c.steps||[]).map(s=>`<span class="pill plain">${t("day")} ${s.day} · ${t("a_"+s.type)}</span>`).join("")}</div></div>${icon("chev")}</div>`).join("")}</div></section></div>`}
+    <div class="list">${S.cadences.map(c=>`<div class="it click" data-cad="${c.id}"><div class="grow"><div class="t">${esc(c.name)}</div><div class="row" style="margin-top:6px;gap:6px">${(c.steps||[]).map(s=>`<span class="pill plain">${t("day")} ${s.day} · ${t("a_"+s.type)}</span>`).join("")}</div></div>${icon("chev")}</div>`).join("")}</div></section>
+   <section class="card"><div class="sec-h"><h2><span class="ico" style="width:28px;height:28px;background:var(--brand-soft);color:var(--brand)">${icon("agent")}</span>${t("lessons")}<span class="n">${(S.lessons||[]).length}</span></h2></div>
+    <p class="small muted" style="margin:0;padding:12px 18px 0">${t("lessonsHint")}</p>
+    <div class="list">${(S.lessons||[]).map(l=>`<div class="it"><span class="ico">${icon("flag")}</span><div class="grow small" style="line-height:1.7">${esc(l.lesson)}</div><button class="btn ghost sm danger" data-del-lesson="${l.id}">${t("del")}</button></div>`).join("")||`<div class="empty small">–</div>`}</div></section></div>`}
 
 /* ================= sheets ================= */
 function openSheet(kind,id,extra={}){S.sheet={kind,id,tab:"overview",...extra};S.menu=false;render()}
@@ -858,6 +862,7 @@ function bindView(){const m=$("#main");if(!m||!S.loaded)return;bindCommon(m);
       if(key){await q(S.hasKey?sb.from("api_keys").update({anthropic_key:key,updated_at:new Date().toISOString()}).eq("owner_id",S.user.id):sb.from("api_keys").insert({anthropic_key:key}));S.hasKey=true}
       const patch={agent_model:$("#s_model").value,agent_monthly_budget_usd:+$("#s_budget").value||0,default_price:+$("#s_price").value||0,commission_pct:+$("#s_comm").value||0,quarterly_target_egp:+$("#s_tgt").value||0,sender_name:$("#s_sn").value,sender_email:$("#s_se").value,signature:$("#s_sig").value,updated_at:new Date().toISOString()};
       S.settings=await q(sb.from("settings").upsert({owner_id:S.user.id,...patch}).select().single());toast("✓ "+t("saved"));render()};
+    $$("[data-del-lesson]",m).forEach(b=>b.onclick=()=>arm(b,async()=>{await q(sb.from("agent_lessons").delete().eq("id",b.dataset.delLesson));S.lessons=S.lessons.filter(x=>x.id!==b.dataset.delLesson);render()}));
     $("#newCad").onclick=()=>openSheet("cad",null);$$("[data-cad]",m).forEach(b=>b.onclick=()=>openSheet("cad",b.dataset.cad));
   }
 }
