@@ -13,7 +13,7 @@ const PRICES: Record<string, { in: number; out: number }> = {
   "claude-sonnet-5-5": { in: 2.0, out: 10.0 },
 };
 const WEB_SEARCH_USD = 0.01;
-const MAX_LOOPS = 10;
+const MAX_LOOPS = 12;
 
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
@@ -43,7 +43,11 @@ QUALIFICATION (score 0-100): size (students; 300+ strong), fees level/ability to
 RULES:
 - Use tools to read/write the CRM. Never invent data; if something is missing, ask or leave it empty.
 - Before creating an institution, search to avoid duplicates.
-- Lead generation: use web_search to find real institutions (name, city, area, phone, website). Only save what you actually found; put the source URL in "source". Then import with import_institutions.
+- You HAVE a web_search tool. Never tell Ahmed you cannot search the web.
+- ACT, don't ask: when a request has a sensible default, do it right away and say which default you used. Ask at most one short question, only when nothing reasonable can be assumed.
+- Lead generation: run several web searches (vary area + type, e.g. "مدارس لغات سموحة", "international schools Alexandria", "حضانات ستانلي", Google Maps/Facebook/school directories). Alexandria areas to cover: Smouha, Stanley, Rushdy, Gleem, Sporting, Louran, Miami, Sidi Bishr, Mandara, Agami, Sidi Gaber, Kafr Abdo, Moharram Bek, Borg El Arab.
+  Collect real institutions with whatever you found (name, type, category, area, city, phone, website, students if stated). Only save what you actually found, never invent phones or numbers; put the source URL in "source". Import them with import_institutions, including score and a short score_notes for each in the same call (one call for the whole batch).
+  If you found fewer than asked, say how many and offer to continue with other areas.
 - Outreach: you can NOT send emails or WhatsApp yourself. Save drafts with save_message_draft; Ahmed reviews and sends with one tap. Keep cold messages short (≤120 words), one clear ask (15-minute call or a demo), personalised to the school.
 - Appointments: when a meeting is agreed, log it with create_task type "meeting" and the date/time in Cairo time.
 - Keep replies brief: confirm what you did in a few lines, then suggest the next best action.
@@ -63,7 +67,7 @@ const tools = [
       email: { type: "string" }, website: { type: "string" }, students_count: { type: "integer" },
       fees_level: { type: "string", enum: ["low", "mid", "high"] }, current_system: { type: "string" },
       source: { type: "string" }, notes: { type: "string" } }, required: ["name"] } },
-  { name: "import_institutions", description: "Bulk-create institutions found by research. Skips duplicates (same name and city).",
+  { name: "import_institutions", description: "Bulk-create institutions found by research (up to 50). Each item takes the same fields as create_institution plus score (0-100) and score_notes, so score them in the same call. Skips duplicates (same name and city).",
     input_schema: { type: "object", properties: { items: { type: "array", items: { type: "object" } } }, required: ["items"] } },
   { name: "update_institution", description: "Update fields of an institution: status (new/contacted/qualified/unqualified/customer/lost), score, score_notes, next_step, next_step_date, students_count, etc.",
     input_schema: { type: "object", properties: { id: { type: "string" }, fields: { type: "object" } }, required: ["id", "fields"] } },
@@ -144,7 +148,7 @@ async function runTool(sb: any, name: string, a: any): Promise<unknown> {
         if (it.city) q = q.ilike("city", it.city);
         const ex = r(await q.limit(1));
         if (ex.length) { out.skipped.push(it.name); continue; }
-        const allowed = ["name","name_en","type","category","city","area","address","phone","email","website","students_count","fees_level","current_system","source","notes"];
+        const allowed = ["name","name_en","type","category","city","area","address","phone","email","website","students_count","fees_level","current_system","source","notes","score","score_notes"];
         const row = clean(Object.fromEntries(Object.entries(it).filter(([k]) => allowed.includes(k))));
         r(await sb.from("institutions").insert(row));
         out.created.push(it.name);
@@ -252,12 +256,12 @@ Deno.serve(async (req) => {
     const today = new Date().toLocaleString("en-GB", { timeZone: "Africa/Cairo", dateStyle: "full", timeStyle: "short" });
     let inTok = 0, outTok = 0, searches = 0, finalText = "";
     const actions: string[] = [];
-    let useSearch = true;
+    let useSearch = true; let searchError = "";
 
     for (let i = 0; i < MAX_LOOPS; i++) {
       const body: any = {
-        model, max_tokens: 4000, system: SYSTEM(today, s), messages,
-        tools: [...tools, ...(useSearch ? [{ type: "web_search_20250305", name: "web_search", max_uses: 3, user_location: { type: "approximate", country: "EG", city: "Alexandria", timezone: "Africa/Cairo" } }] : [])],
+        model, max_tokens: 8000, system: SYSTEM(today, s) + (useSearch ? "" : `\nNOTE: the web_search tool failed this turn (${searchError}). Tell Ahmed in one line that web search failed and quote this reason.`), messages,
+        tools: [...tools, ...(useSearch ? [{ type: "web_search_20250305", name: "web_search", max_uses: 8, allowed_callers: ["direct"], user_location: { type: "approximate", country: "EG", city: "Alexandria", timezone: "Africa/Cairo" } }] : [])],
       };
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
@@ -266,7 +270,7 @@ Deno.serve(async (req) => {
       });
       const data = await res.json();
       if (!res.ok) {
-        if (useSearch && JSON.stringify(data).includes("web_search")) { useSearch = false; i--; continue; }
+        if (useSearch && JSON.stringify(data).includes("web_search")) { useSearch = false; searchError = data?.error?.message || "web search unavailable"; i--; continue; }
         throw new Error(data?.error?.message || "Claude API error");
       }
       inTok += (data.usage?.input_tokens ?? 0) + (data.usage?.cache_read_input_tokens ?? 0) + (data.usage?.cache_creation_input_tokens ?? 0);
@@ -298,7 +302,7 @@ Deno.serve(async (req) => {
     await admin.from("agent_usage").insert({ owner_id: uid, model, input_tokens: inTok, output_tokens: outTok, web_searches: searches, cost_usd: cost });
     await sb.from("agent_messages").insert([{ role: "user", content: message }, { role: "assistant", content: finalText || "✓" }]);
 
-    return json({ reply: finalText, actions, usage: { input_tokens: inTok, output_tokens: outTok, web_searches: searches, cost_usd: cost, month_spent_usd: spent + cost, budget_usd: budget } });
+    return json({ reply: finalText, actions, search_error: searchError || undefined, usage: { input_tokens: inTok, output_tokens: outTok, web_searches: searches, cost_usd: cost, month_spent_usd: spent + cost, budget_usd: budget } });
   } catch (e) {
     return json({ error: "server", message: (e as Error).message }, 500);
   }
